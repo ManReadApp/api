@@ -13,7 +13,3 @@ pub fn create_folders(root: &Path, paths: Vec<&str>) -> std::io::Result<()> {
 pub fn create_path(path: &str) -> Result<(), ApiError> {
     fs::create_dir_all(path).map_err(ApiError::write_error)
 }
-
-pub fn now() -> Duration {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap()
-}

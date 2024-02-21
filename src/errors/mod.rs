@@ -38,6 +38,14 @@ impl ResponseError for ApiError {
             ApiErrorType::InvalidInput => StatusCode::UNPROCESSABLE_ENTITY,
             ApiErrorType::Unauthorized => StatusCode::UNAUTHORIZED,
             ApiErrorType::WriteError => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorInvalidUrl => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorJsSandboxError => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorBase64Error => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorKeyDecryptionError => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorInputError => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorFetchError => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorParseError => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorReadError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 

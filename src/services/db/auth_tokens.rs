@@ -1,7 +1,6 @@
 use crate::env::config::random_string;
 use crate::errors::ApiError;
 use crate::services::db::user::User;
-use crate::util::now;
 use api_structure::auth::role::{Kind, Role};
 use api_structure::error::{ApiErr, ApiErrorType};
 use api_structure::now_timestamp;
@@ -70,7 +69,7 @@ impl AuthTokenDBService {
         let query = format!(
             "WHERE token = \"{}\" AND active_until_timestamp >= {}",
             token,
-            now().as_millis()
+            now_timestamp().unwrap().as_millis()
         );
 
         let mut search = AuthToken::search(&*self.conn, Some(query)).await?;
