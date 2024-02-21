@@ -12,15 +12,11 @@ use egui::{
 use std::f64::consts::PI;
 use std::ops::Add;
 
-pub struct PlaygroundPage {
-    image: Image<'static>,
-}
+pub struct PlaygroundPage {}
 
 impl Default for PlaygroundPage {
     fn default() -> Self {
-        Self {
-            image: Image::new(include_image!("../assets/55_2.webp")),
-        }
+        Self {}
     }
 }
 
