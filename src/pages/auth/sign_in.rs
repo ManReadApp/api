@@ -1,17 +1,23 @@
+use crate::data::user::User;
 use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
-use crate::pages::auth::background;
+use crate::pages::auth::{background, get_background};
 use crate::util::validator::{validate_email, validate_password, validate_username};
 use crate::widgets::hover_brackground::HoverBackground;
 use crate::widgets::or_continue_with::centered_line_with_text_widget;
 use crate::widgets::submit_button;
+use crate::window_storage::Page;
 use api_structure::auth::jwt::JWTs;
 use api_structure::auth::login::{
     LoginRequest, LoginWithEmailAndPassword, LoginWithUsernameAndPassword,
 };
+use api_structure::auth::role::Role;
 use api_structure::RequestImpl;
 use eframe::{App, Frame};
-use egui::{vec2, Align, Context, Image, ImageButton, Label, Layout, Link, Sense, TextEdit, Ui};
+use egui::{
+    vec2, Align, Context, CursorIcon, Image, ImageButton, Label, Layout, Link, Sense, TextEdit, Ui,
+};
+use ethread::ThreadHandler;
 
 pub struct LoginPage {
     height: Option<f32>,
@@ -23,37 +29,39 @@ pub struct LoginPage {
     username: String,
     password: String,
     request: Fetcher<JWTs>,
+    ctx_set: bool,
 }
 impl Default for LoginPage {
     fn default() -> Self {
         //TODO: icons look bad
+        //egui_extras::image::gif_to_sources(concat!("gif://", ""), Cursor::new(include_bytes!("../../assets/loading.gif")));
         Self {
             height: None,
-            bg: Image::new(egui::include_image!("../../background.png")),
+            bg: get_background(),
             gh: ImageButton::new(
-                Image::new(egui::include_image!("../assets/logos/github.png"))
+                Image::new(egui::include_image!("../../assets/logos/github.png"))
                     .fit_to_exact_size(vec2(32., 32.)),
             ),
             apple: ImageButton::new(
-                Image::new(egui::include_image!("../assets/logos/apple.png"))
+                Image::new(egui::include_image!("../../assets/logos/apple.png"))
                     .fit_to_exact_size(vec2(32., 32.)),
             ),
             google: ImageButton::new(
-                Image::new(egui::include_image!("../assets/logos/google.png"))
+                Image::new(egui::include_image!("../../assets/logos/google.png"))
                     .fit_to_exact_size(vec2(32., 32.)),
             ),
             email_login: false,
             username: "".to_string(),
             password: "".to_string(),
             request: Fetcher::new(LoginRequest::request(&get_app_data().url).unwrap()),
+            ctx_set: false,
         }
     }
 }
 
 impl App for LoginPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
-        let panel = egui::CentralPanel::default();
-        panel.show(ctx, |ui| {
+        egui::CentralPanel::default().show(ctx, |ui| {
             background(&self.bg, ui);
             self.height = Some(self.hover_box(ui, ctx, self.height));
         });
@@ -61,16 +69,12 @@ impl App for LoginPage {
 }
 
 impl HoverBackground for LoginPage {
-    fn inner(&mut self, ui: &mut Ui, _: &Context) {
+    fn inner(&mut self, ui: &mut Ui, ctx: &Context) {
+        if !self.ctx_set {
+            self.ctx_set = true;
+            self.request.set_ctx(ctx.clone());
+        }
         ui.vertical_centered(|ui| {
-            if let Some(res) = self.request.result() {
-                match res {
-                    Complete::Json(_) => {
-                        //TODO: login
-                    }
-                    _ => res.display_error(ui),
-                }
-            }
             self.header(ui);
             self.username_field(ui);
             self.password_field(ui);
@@ -84,6 +88,19 @@ impl HoverBackground for LoginPage {
 
 impl LoginPage {
     fn header(&mut self, ui: &mut Ui) {
+        if let Some(v) = self.request.result() {
+            v.display_error(ui);
+            if let Complete::Json(json) = v {
+                let app = get_app_data();
+                app.set_user_data(User::new(json.clone()).unwrap());
+                User::set_token(json.refresh_token.as_str()).unwrap();
+                if Role::NotVerified == app.get_user_data().unwrap().role {
+                    app.open(Page::VerifyAccount)
+                } else {
+                    app.change(Page::Home, Page::all())
+                }
+            }
+        }
         ui.heading("Welcome back");
         ui.add_space(4.0);
         if ui
@@ -122,12 +139,12 @@ impl LoginPage {
 
     fn forgot_password(&self, ui: &mut Ui) {
         ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-            if ui
-                .add(Label::new("Forgot password?").sense(Sense::click()))
-                .clicked()
-            {
-                //TODO: change page
-                //replace_page(&self.gd.page_management, vec![], Page::ForgotPassword);
+            let response = ui.add(Label::new("Forgot password?").sense(Sense::click()));
+            if response.hovered() {
+                ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+            }
+            if response.clicked() {
+                get_app_data().open(Page::ResetPassword);
             }
         });
     }
@@ -170,7 +187,7 @@ impl LoginPage {
 
         // Icon buttons
         ui.horizontal(|ui| {
-            let space = (ui.available_width() - (32 * 3) as f32 - style * 10.) / 2.0;
+            let space = (ui.available_width() - ((32. + 2. * style) * 3.)) / 2.0 - style;
             ui.add_space(space);
             //TODO: add login with apple, google, facebook, twitter, github, gitlab
             ui.add(self.apple.clone());
@@ -189,7 +206,7 @@ impl LoginPage {
                 .on_hover_text("Click to register")
                 .clicked()
             {
-                //TODO: change page
+                get_app_data().open(Page::SignUp);
             }
         });
     }
