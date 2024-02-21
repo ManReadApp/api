@@ -16,11 +16,11 @@ pub async fn validator(
     match secret.decode_claim(cred.token()) {
         Ok(v) => {
             {
-                let mut ext = req.extensions_mut();
                 if matches!(v.jwt_type, JwtType::AccessToken) {
                     req.attach(vec![v.role]);
                 }
-                ext.insert(Data::new(v));
+                let mut ext = req.extensions_mut();
+                ext.insert(v);
             }
             Ok(req)
         }

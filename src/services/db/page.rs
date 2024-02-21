@@ -7,6 +7,7 @@ use surrealdb_extras::{SurrealTable, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("manga_pages")]
+#[sql(["DEFINE EVENT manga_page_updated ON TABLE manga_pages WHEN $event = \"UPDATE\" AND $before.updated == $after.updated THEN (UPDATE $after.id SET updated = time::now() );"])]
 pub struct Page {
     pub page: u32,
     pub width: u32,

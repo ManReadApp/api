@@ -11,7 +11,7 @@ pub struct CryptoService {
 }
 
 impl CryptoService {
-    pub fn hash_password(&self, password: String) -> Result<String, ApiError> {
+    pub fn hash_password(&self, password: &str) -> Result<String, ApiError> {
         let hashed = hash(password, DEFAULT_COST)?;
         Ok(hashed)
     }

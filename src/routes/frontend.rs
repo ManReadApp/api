@@ -3,7 +3,7 @@ use crate::errors::ApiError;
 use actix_files::NamedFile;
 use actix_web::web::Data;
 use actix_web::{get, web};
-use std::path::{Path};
+use std::path::Path;
 
 #[get("/{file}")]
 async fn frontend_ep(file: web::Path<String>, config: Data<Config>) -> Result<NamedFile, ApiError> {

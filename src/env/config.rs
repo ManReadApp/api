@@ -59,7 +59,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             root_folder: "data".into(),
-            port: 8080,
+            port: 8082,
             https_port: 8081,
             rust_log: "info".to_string(),
             secret_key: random_string(64), //2048bit = 256byte = 64 chars

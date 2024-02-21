@@ -9,6 +9,7 @@ use surrealdb_extras::{SurrealTable, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("chapter_version_connections")]
+#[sql(["DEFINE EVENT chapter_version_conn_updated ON TABLE chapter_version_connections WHEN $event = \"UPDATE\" AND $before.updated == $after.updated THEN (UPDATE $after.id SET updated = time::now() );"])]
 pub struct ChapterVersion {
     pub version: ThingType<Version>,
     pub pages: Vec<ThingType<Page>>,

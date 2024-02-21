@@ -1,7 +1,6 @@
 use crate::env::config::Config;
 use crate::errors::ApiError;
 use crate::services::crypto_service::CryptoService;
-use crate::services::db::tag::Tag;
 use crate::services::db::user::UserDBService;
 use actix_web::post;
 use actix_web::web::{Data, Json};
@@ -18,7 +17,20 @@ async fn sign_up_route(
     config: Data<Config>,
     db: Data<UserDBService>,
 ) -> Result<Json<JWTs>, ApiError> {
-    if db.email_exists(&data.email).await {
+    if !config
+        .root_folder
+        .join("temp")
+        .join(&data.icon_temp_name)
+        .exists()
+    {
+        return Err(ApiErr {
+            message: Some("File does not exist".to_string()),
+            cause: None,
+            err_type: ApiErrorType::InvalidInput,
+        }
+        .into());
+    }
+    if db.email_exists(&data.email.to_lowercase()).await {
         return Err(ApiErr {
             message: Some("Email already exists".to_string()),
             cause: None,
@@ -48,25 +60,22 @@ async fn sign_up_route(
     let user = db
         .new_user(
             data.name,
-            data.email,
-            data.password,
+            data.email.to_lowercase(),
+            crypto.hash_password(&data.password)?,
             ext.to_string(),
             data.birthdate,
             data.gender,
         )
         .await?;
 
-    println!("a");
     let id = user.id.id().to_string();
 
     let name = format!("{}.{}", id, ext);
-    println!("a");
 
     std::fs::rename(
         config.root_folder.join("temp").join(data.icon_temp_name),
-        config.root_folder.join("covers").join(name),
+        config.root_folder.join("users").join("icon").join(name),
     )?;
-    println!("a");
     Ok(Json(JWTs {
         access_token: crypto.encode_claim(&Claim::new_access(id.clone(), Role::NotVerified)?)?,
         refresh_token: crypto.encode_claim(&Claim::new_refresh(id.clone(), Role::NotVerified)?)?,

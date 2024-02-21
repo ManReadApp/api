@@ -9,6 +9,7 @@ use surrealdb_extras::{SurrealTable, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("user_progress")]
+#[sql(["DEFINE EVENT user_progress_updated ON TABLE user_progress WHEN $event = \"UPDATE\" AND $before.updated == $after.updated THEN (UPDATE $after.id SET updated = time::now() );"])]
 pub struct UserProgress {
     user: ThingType<User>,
     chapter: ThingType<ChapterVersion>,

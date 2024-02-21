@@ -1,18 +1,23 @@
+use crate::errors::ApiError;
 use crate::services::db::tag::Tag;
 use api_structure::auth::register::Gender;
 use api_structure::auth::role::Role;
+use api_structure::error::{ApiErr, ApiErrorType};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Datetime;
+use surrealdb::opt::PatchOp;
+use surrealdb::sql::{Datetime, Thing};
 use surrealdb::{Error, Surreal};
 use surrealdb_extras::{
-    Record, RecordData, SurrealSelect, SurrealTable, SurrealTableInfo, ThingFunc,
+    Record, RecordData, SurrealSelect, SurrealSelectInfo, SurrealTable, SurrealTableInfo,
+    ThingFunc, ThingType,
 };
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("users")]
+#[sql(["DEFINE EVENT user_updated ON TABLE users WHEN $event = \"UPDATE\" AND $before.updated == $after.updated THEN (UPDATE $after.id SET updated = time::now() );"])]
 pub struct User {
     pub names: Vec<String>,
     pub email: String,
@@ -33,11 +38,91 @@ pub struct User {
 #[derive(SurrealSelect, Deserialize)]
 struct Empty {}
 
+#[derive(SurrealSelect, Deserialize, Serialize)]
+struct UserRole {
+    role: u32,
+}
+
+#[derive(SurrealSelect, Deserialize)]
+pub struct UserRolePassword {
+    pub role: u32,
+    pub password: String,
+}
+
 pub struct UserDBService {
     pub conn: Arc<Surreal<Db>>,
 }
 
 impl UserDBService {
+    pub async fn get_id(&self, ident: &str, email: bool) -> Result<String, ApiError> {
+        let search = Self::emailusername_query(email, ident);
+        let mut user = User::search(&*self.conn, Some(search)).await?;
+        if user.is_empty() {
+            return Err(ApiErr {
+                message: Some("No user found".to_string()),
+                cause: None,
+                err_type: ApiErrorType::InvalidInput,
+            }
+            .into());
+        }
+        let user: RecordData<Empty> = user.remove(0);
+        Ok(user.id.id().to_string())
+    }
+
+    pub async fn set_password(&self, id: &str, password: String) -> Result<(), ApiError> {
+        let v: ThingFunc = ThingFunc::new(Thing::from((User::name(), id)));
+        let _: Option<Record> = v
+            .patch(&*self.conn, PatchOp::replace("password", password))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn set_role(&self, id: &str, role: Role) -> Result<(), ApiError> {
+        let v: ThingFunc = ThingFunc::new(Thing::from((User::name(), id)));
+        let role = UserRole { role: role as u32 };
+        let v: Option<Record> = v.update(&*self.conn, role).await?;
+        Ok(())
+    }
+
+    fn emailusername_query(email: bool, search: &str) -> String {
+        match email {
+            true => format!("WHERE email = \"{}\"", search.to_lowercase()),
+            false => format!("WHERE names CONTAINS \"{}\"", search),
+        }
+    }
+    pub async fn login_data(
+        &self,
+        search: &str,
+        email: bool,
+    ) -> Result<RecordData<UserRolePassword>, ApiError> {
+        let search = Self::emailusername_query(email, search);
+        let mut user = User::search(&*self.conn, Some(search)).await?;
+        if user.is_empty() {
+            return Err(ApiErr {
+                message: Some("Couldnt find user".to_string()),
+                cause: None,
+                err_type: ApiErrorType::InvalidInput,
+            }
+            .into());
+        }
+        Ok(user.remove(0))
+    }
+    pub async fn get_role(&self, id: &str) -> Result<Role, ApiError> {
+        let v: ThingType<User> = ThingType::new(ThingFunc::new(Thing::from((User::name(), id))));
+        let v: RecordData<UserRole> = match v.get_part(&*self.conn).await? {
+            Some(v) => v,
+            None => {
+                return Err(ApiErr {
+                    message: Some("Failed to find user in db".to_string()),
+                    cause: None,
+                    err_type: ApiErrorType::ReadError,
+                }
+                .into())
+            }
+        };
+        let role = v.data.role;
+        Ok(Role::from(role))
+    }
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {
         Self { conn }
     }
@@ -76,17 +161,19 @@ impl UserDBService {
 
     pub async fn email_exists(&self, email: &str) -> bool {
         let result: Vec<RecordData<Empty>> =
-            User::search(&*self.conn, Some(format!("email = {}", email)))
+            User::search(&*self.conn, Some(format!("WHERE email = \"{}\"", email)))
                 .await
                 .unwrap_or_default();
         !result.is_empty()
     }
 
     pub async fn username_exists(&self, name: &str) -> bool {
-        let result: Vec<RecordData<Empty>> =
-            User::search(&*self.conn, Some(format!("names CONTAINS {}", name)))
-                .await
-                .unwrap_or_default();
+        let result: Vec<RecordData<Empty>> = User::search(
+            &*self.conn,
+            Some(format!("WHERE names CONTAINS \"{}\"", name)),
+        )
+        .await
+        .unwrap_or_default();
         !result.is_empty()
     }
 }

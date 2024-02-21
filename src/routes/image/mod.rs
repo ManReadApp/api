@@ -14,6 +14,7 @@ pub async fn upload_images(
     data: Multipart,
     config: Data<Config>,
 ) -> Result<Json<Vec<(String, String)>>, ApiError> {
+    println!("{}", "aaaaa");
     multipart::upload_images(data, config).await.map(Json)
 }
 

@@ -14,6 +14,7 @@ use surrealdb_extras::{SurrealTable, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("mangas")]
+#[sql(["DEFINE EVENT manga_updated ON TABLE mangas WHEN $event = \"UPDATE\" AND $before.updated == $after.updated THEN (UPDATE $after.id SET updated = time::now() );"])]
 pub struct Manga {
     pub titles: HashMap<String, Vec<String>>,
     pub kind: ThingType<Kind>,

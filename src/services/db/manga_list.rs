@@ -10,6 +10,7 @@ use surrealdb_extras::{SurrealTable, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("manga_lists")]
+#[sql(["DEFINE EVENT manga_list_updated ON TABLE manga_lists WHEN $event = \"UPDATE\" AND $before.updated == $after.updated THEN (UPDATE $after.id SET updated = time::now() );"])]
 pub struct MangaList {
     name: String,
     user: ThingType<User>,

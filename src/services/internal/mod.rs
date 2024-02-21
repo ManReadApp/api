@@ -9,7 +9,7 @@ use surrealdb_extras::SurrealTableInfo;
 
 static mut RERUN: u128 = 0;
 
-pub async fn internal_service(db: Arc<Surreal<Db>>) {
+pub async fn internal_service(db: impl Fn() -> Arc<Surreal<Db>>) {
     loop {
         let time = get_next_rerun();
 
