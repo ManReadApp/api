@@ -1,9 +1,10 @@
 use crate::data::user::User;
 use crate::window_storage::Page;
 use api_structure::auth::jwt::Claim;
+use api_structure::search::{Array, ItemOrArray, Order, SearchRequest};
 use egui::Image;
 use reqwest::Client;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -17,9 +18,23 @@ pub struct SharedData {
     pub go_back_page: Arc<Mutex<Option<Page>>>,
     pub client: Client,
     pub spinner: Arc<Mutex<Option<Image<'static>>>>,
+    pub lang_hierarchy: Vec<String>,
+    pub search: Arc<Mutex<SearchRequest>>,
 }
 
 impl SharedData {
+    pub fn get_title(&self, data: &HashMap<String, Vec<String>>) -> String {
+        for lang in &self.lang_hierarchy {
+            if let Some(v) = data.get(lang) {
+                return v.get(0).unwrap().to_string();
+            }
+        }
+        if let Some(v) = data.values().next() {
+            return v.get(0).unwrap().to_string();
+        }
+        "No Title".to_string()
+    }
+
     fn user(&self) -> &Arc<Mutex<Option<User>>> {
         if self.user.lock().unwrap().is_none() {
             self.change(Page::SignIn, Page::all())
@@ -35,6 +50,7 @@ impl SharedData {
 
     pub fn logout(&self) {
         *self.user.lock().unwrap() = None;
+        User::delete_token().unwrap();
         self.user();
     }
 
@@ -76,7 +92,7 @@ impl SharedData {
     }
 
     pub fn page(&self) -> Page {
-        *self.page.lock().unwrap()
+        self.page.lock().unwrap().clone()
     }
     pub fn new() -> Self {
         Self {
@@ -87,6 +103,21 @@ impl SharedData {
             go_back_page: Arc::new(Mutex::new(None)),
             client: Default::default(),
             spinner: Default::default(),
+            lang_hierarchy: vec![
+                "eng".to_string(),
+                "jpn_ascii".to_string(),
+                "zh_ascii".to_string(),
+                "ko_ascii".to_string(),
+            ],
+            search: Arc::new(Mutex::new(SearchRequest {
+                order: Order::Id,
+                desc: false,
+                page: 0,
+                query: ItemOrArray::Array(Array {
+                    or: false,
+                    items: vec![],
+                }),
+            })),
         }
     }
 

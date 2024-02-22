@@ -8,7 +8,7 @@ use crate::pages::{HomePage, LoadingInitRefreshPage, PlaygroundPage};
 use eframe::App;
 use std::collections::HashSet;
 
-#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Eq, PartialEq, Hash, Clone)]
 pub enum Page {
     LoadingInitRefresh,
     Home,
@@ -17,8 +17,13 @@ pub enum Page {
     SignUpInfo,
     ResetPassword,
     VerifyAccount,
+    MangaInfo(String),
     #[cfg(feature = "dev")]
     Playground,
+    Search,
+    AddManga,
+    You,
+    Settings,
 }
 
 impl Page {
@@ -33,6 +38,11 @@ impl Page {
             #[cfg(feature = "dev")]
             Self::Playground,
             Self::VerifyAccount,
+            Self::MangaInfo("".to_string()),
+            Self::Search,
+            Self::AddManga,
+            Self::You,
+            Self::Settings,
         ]
     }
 }
@@ -48,6 +58,11 @@ pub struct Windows {
     verfiy_account: Option<VerifyAccountPage>,
     #[cfg(feature = "dev")]
     playground: Option<PlaygroundPage>,
+    manga_info: Option<()>,
+    search: Option<()>,
+    add_manga: Option<()>,
+    you: Option<()>,
+    settings: Option<()>,
 }
 
 impl Windows {
@@ -62,6 +77,11 @@ impl Windows {
             Page::VerifyAccount => self.verfiy_account = None,
             #[cfg(feature = "dev")]
             Page::Playground => self.playground = None,
+            Page::MangaInfo(_) => self.manga_info = None,
+            Page::Search => self.search = None,
+            Page::AddManga => self.add_manga = None,
+            Page::You => self.you = None,
+            Page::Settings => self.settings = None,
         };
     }
 
@@ -109,6 +129,11 @@ impl Windows {
                 self.verfiy_account
                     .get_or_insert_with(VerifyAccountPage::default) as &mut dyn App
             }
+            Page::MangaInfo(v) => todo!(),
+            Page::Search => todo!(),
+            Page::AddManga => todo!(),
+            Page::You => todo!(),
+            Page::Settings => todo!(),
         }
     }
 
