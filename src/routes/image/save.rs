@@ -1,5 +1,5 @@
 use crate::env::config::Config;
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use actix_web::web;
 use actix_web::web::Data;
 use image::io::Reader as ImageReader;
@@ -26,7 +26,7 @@ pub async fn write_file(
     old_file_name: &str,
     mut data: Vec<u8>,
     config: &Data<Config>,
-) -> Result<String, ApiError> {
+) -> ApiResult<String> {
     #[cfg(feature = "content-type-from-filename")]
     let content_type = get_content_type_from_filename(old_file_name);
     #[cfg(not(feature = "content-type-from-filename"))]

@@ -1,4 +1,4 @@
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::auth_tokens::AuthTokenDBService;
 use crate::services::db::user::UserDBService;
@@ -21,7 +21,7 @@ async fn activate(
     user: Data<UserDBService>,
     crypto: Data<CryptoService>,
     activation: Data<AuthTokenDBService>,
-) -> Result<Json<JWTs>, ApiError> {
+) -> ApiResult<Json<JWTs>> {
     let find = activation.check(&data.key).await?;
     if let Some(v) = &find.data.user {
         if v.thing.id().to_string() != claim.id {

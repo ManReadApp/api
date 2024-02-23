@@ -1,4 +1,4 @@
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use api_structure::auth::jwt::Claim;
 use api_structure::error::{ApiErr, ApiErrorType};
 use api_structure::now_timestamp;
@@ -11,7 +11,7 @@ pub struct CryptoService {
 }
 
 impl CryptoService {
-    pub fn hash_password(&self, password: &str) -> Result<String, ApiError> {
+    pub fn hash_password(&self, password: &str) -> ApiResult<String> {
         let hashed = hash(password, DEFAULT_COST)?;
         Ok(hashed)
     }
@@ -20,7 +20,7 @@ impl CryptoService {
         verify(password, &hash).unwrap_or(false)
     }
 
-    pub fn decode_claim(&self, token: &str) -> Result<Claim, ApiError> {
+    pub fn decode_claim(&self, token: &str) -> ApiResult<Claim> {
         let decoding_key = DecodingKey::from_secret(self.secret.as_ref());
         let token = match decode::<Claim>(token, &decoding_key, &Validation::new(Algorithm::HS512))
         {
@@ -34,7 +34,7 @@ impl CryptoService {
         }
     }
 
-    pub fn encode_claim(&self, claim: &Claim) -> Result<String, ApiError> {
+    pub fn encode_claim(&self, claim: &Claim) -> ApiResult<String> {
         let header = Header::new(Algorithm::HS512);
         jsonwebtoken::encode(&header, claim, &EncodingKey::from_secret(&self.secret)).map_err(|e| {
             ApiErr {

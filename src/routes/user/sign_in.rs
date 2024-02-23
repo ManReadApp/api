@@ -1,4 +1,4 @@
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::user::UserDBService;
 use actix_web::post;
@@ -13,7 +13,7 @@ async fn login(
     Json(data): Json<LoginRequest>,
     user: Data<UserDBService>,
     crypto: Data<CryptoService>,
-) -> Result<Json<JWTs>, ApiError> {
+) -> ApiResult<Json<JWTs>> {
     let (item, password) = match data {
         LoginRequest::Username(v) => (user.login_data(&v.username, false).await, v.password),
         LoginRequest::Email(v) => (user.login_data(&v.email, true).await, v.password),

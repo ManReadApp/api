@@ -1,4 +1,4 @@
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::user::UserDBService;
 use actix_web::post;
@@ -11,7 +11,7 @@ async fn refresh_(
     claim: ReqData<Claim>,
     db: Data<UserDBService>,
     crypto: Data<CryptoService>,
-) -> Result<Json<JWTs>, ApiError> {
+) -> ApiResult<Json<JWTs>> {
     let role = db.get_role(claim.id.as_str()).await?;
     Ok(Json(JWTs {
         access_token: crypto.encode_claim(&Claim::new_access(claim.id.clone(), role)?)?,

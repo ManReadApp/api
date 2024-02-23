@@ -1,4 +1,4 @@
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use crate::services::db::tag::Tag;
 use api_structure::auth::register::Gender;
 use api_structure::auth::role::Role;
@@ -54,7 +54,7 @@ pub struct UserDBService {
 }
 
 impl UserDBService {
-    pub async fn get_id(&self, ident: &str, email: bool) -> Result<String, ApiError> {
+    pub async fn get_id(&self, ident: &str, email: bool) -> ApiResult<String> {
         let search = Self::emailusername_query(email, ident);
         let mut user = User::search(&*self.conn, Some(search)).await?;
         if user.is_empty() {
@@ -69,7 +69,7 @@ impl UserDBService {
         Ok(user.id.id().to_string())
     }
 
-    pub async fn set_password(&self, id: &str, password: String) -> Result<(), ApiError> {
+    pub async fn set_password(&self, id: &str, password: String) -> ApiResult<()> {
         let v: ThingFunc = ThingFunc::new(Thing::from((User::name(), id)));
         let _: Option<Record> = v
             .patch(&*self.conn, PatchOp::replace("password", password))
@@ -77,7 +77,7 @@ impl UserDBService {
         Ok(())
     }
 
-    pub async fn set_role(&self, id: &str, role: Role) -> Result<(), ApiError> {
+    pub async fn set_role(&self, id: &str, role: Role) -> ApiResult<()> {
         let v: ThingFunc = ThingFunc::new(Thing::from((User::name(), id)));
         let role = UserRole { role: role as u32 };
         let v: Option<Record> = v.update(&*self.conn, role).await?;
@@ -94,7 +94,7 @@ impl UserDBService {
         &self,
         search: &str,
         email: bool,
-    ) -> Result<RecordData<UserRolePassword>, ApiError> {
+    ) -> ApiResult<RecordData<UserRolePassword>> {
         let search = Self::emailusername_query(email, search);
         let mut user = User::search(&*self.conn, Some(search)).await?;
         if user.is_empty() {
@@ -107,7 +107,7 @@ impl UserDBService {
         }
         Ok(user.remove(0))
     }
-    pub async fn get_role(&self, id: &str) -> Result<Role, ApiError> {
+    pub async fn get_role(&self, id: &str) -> ApiResult<Role> {
         let v: ThingType<User> = ThingType::new(ThingFunc::new(Thing::from((User::name(), id))));
         let v: RecordData<UserRole> = match v.get_part(&*self.conn).await? {
             Some(v) => v,

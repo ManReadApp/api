@@ -1,5 +1,5 @@
 use crate::env::config::random_string;
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use crate::services::db::user::User;
 use api_structure::auth::role::{Kind, Role};
 use api_structure::error::{ApiErr, ApiErrorType};
@@ -7,7 +7,6 @@ use api_structure::now_timestamp;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
-use surrealdb::dbs::node::Timestamp;
 use surrealdb::engine::local::Db;
 use surrealdb::sql::Thing;
 use surrealdb::Surreal;
@@ -65,7 +64,7 @@ impl AuthTokenDBService {
         Self { conn }
     }
 
-    pub async fn check(&self, token: &str) -> Result<RecordData<AuthUser>, ApiError> {
+    pub async fn check(&self, token: &str) -> ApiResult<RecordData<AuthUser>> {
         let query = format!(
             "WHERE token = \"{}\" AND active_until_timestamp >= {}",
             token,

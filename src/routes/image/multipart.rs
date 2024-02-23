@@ -1,5 +1,5 @@
 use crate::env::config::{random_string, Config};
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use crate::routes::image::save::write_file;
 use actix_multipart::Multipart;
 use actix_web::web::Data;
@@ -9,7 +9,7 @@ use futures_util::{StreamExt, TryStreamExt};
 pub async fn upload_images(
     mut payload: Multipart,
     config: Data<Config>,
-) -> Result<Vec<(String, String)>, ApiError> {
+) -> ApiResult<Vec<(String, String)>> {
     let mut images = vec![];
     while let Some(Ok(mut field)) = payload.next().await {
         let field_name = match field.content_disposition().get_name() {

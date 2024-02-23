@@ -1,5 +1,5 @@
 use crate::env::config::Config;
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::user::UserDBService;
 use actix_web::post;
@@ -16,7 +16,7 @@ async fn sign_up_route(
     crypto: Data<CryptoService>,
     config: Data<Config>,
     db: Data<UserDBService>,
-) -> Result<Json<JWTs>, ApiError> {
+) -> ApiResult<Json<JWTs>> {
     if !config
         .root_folder
         .join("temp")

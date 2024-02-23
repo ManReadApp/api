@@ -12,6 +12,7 @@ use api_structure::error::{ApiErr, ApiErrorType};
 
 pub(crate) struct ApiError(ApiErr);
 
+pub type ApiResult<T> = Result<T, ApiError>;
 mod debugging {
     use crate::errors::ApiError;
     use std::fmt::{Debug, Formatter};
@@ -57,19 +58,5 @@ impl ResponseError for ApiError {
 impl From<ApiErr> for ApiError {
     fn from(value: ApiErr) -> Self {
         ApiError(value)
-    }
-}
-
-enum ApiResult<V> {
-    Ok(V),
-    Err(ApiError),
-}
-
-impl<V> From<Result<V, ApiError>> for ApiResult<V> {
-    fn from(value: Result<V, ApiError>) -> Self {
-        match value {
-            Ok(v) => ApiResult::Ok(v),
-            Err(e) => ApiResult::Err(e),
-        }
     }
 }

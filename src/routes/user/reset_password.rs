@@ -1,4 +1,4 @@
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::auth_tokens::{AuthToken, AuthTokenDBService};
 use crate::services::db::user::UserDBService;
@@ -15,7 +15,7 @@ async fn request_reset_password(
     Json(data): Json<RequestResetPasswordRequest>,
     activation: Data<AuthTokenDBService>,
     user: Data<UserDBService>,
-) -> Result<Json<()>, ApiError> {
+) -> ApiResult<Json<()>> {
     let id = user.get_id(&data.ident, data.email).await?;
     AuthToken::new_forgot(id).add_i(&*activation.conn).await?;
     Ok(Json(()))
@@ -26,7 +26,7 @@ async fn reset_password(
     user: Data<UserDBService>,
     crypto: Data<CryptoService>,
     activation: Data<AuthTokenDBService>,
-) -> Result<Json<JWTs>, ApiError> {
+) -> ApiResult<Json<JWTs>> {
     let find = activation.check(&data.key).await?;
     let id = user.get_id(&data.ident, data.email).await?;
     if let Some(v) = &find.data.user {

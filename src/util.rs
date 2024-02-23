@@ -1,4 +1,4 @@
-use crate::errors::ApiError;
+use crate::errors::{ApiError, ApiResult};
 use std::fs;
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -10,6 +10,6 @@ pub fn create_folders(root: &Path, paths: Vec<&str>) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn create_path(path: &str) -> Result<(), ApiError> {
+pub fn create_path(path: &str) -> ApiResult<()> {
     fs::create_dir_all(path).map_err(ApiError::write_error)
 }
