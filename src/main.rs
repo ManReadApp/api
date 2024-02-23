@@ -17,7 +17,7 @@ use crate::services::db::user::UserDBService;
 use crate::services::db::version::VersionDBService;
 use crate::util::create_folders;
 use actix_web::middleware::Logger;
-use actix_web::web::{Data, service};
+use actix_web::web::{Data};
 use actix_web::{web, App, HttpServer, Responder};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use log::info;
@@ -117,7 +117,8 @@ async fn main() -> std::io::Result<()> {
                             .wrap(HttpAuthentication::bearer(validator))
                             .service(routes::user::refresh_route) //ALL
                             .service(routes::user::activate_route) //NotVerified
-                            .service(routes::manga::home_route)
+                            .service(routes::manga::home_route) //min User
+                            .service(routes::manga::search_route) //min User
                     ),
             );
         app

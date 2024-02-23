@@ -8,11 +8,11 @@ use crate::errors::{ApiResult};
 use crate::services::db::manga::{MangaDBService, MangaSearch};
 use crate::services::db::tag::TagDBService;
 
-// #[post("/home")]
-// #[protect(
-// any("api_structure::auth::role::Role::Admin", "api_structure::auth::role::Role::CoAdmin", "api_structure::auth::role::Role::Moderator", "api_structure::auth::role::Role::Author", "api_structure::auth::role::Role::User"),
-// ty = "api_structure::auth::role::Role"
-// )]
+#[post("/home")]
+#[protect(
+any("api_structure::auth::role::Role::Admin", "api_structure::auth::role::Role::CoAdmin", "api_structure::auth::role::Role::Moderator", "api_structure::auth::role::Role::Author", "api_structure::auth::role::Role::User"),
+ty = "api_structure::auth::role::Role"
+)]
 pub async fn home(manga: Data<MangaDBService>, tags: Data<TagDBService>) -> ApiResult<Json<HomeResponse>> {
     const LIMIT:u32 = 20;
     let trending = SearchRequest {
@@ -74,7 +74,7 @@ pub async fn home(manga: Data<MangaDBService>, tags: Data<TagDBService>) -> ApiR
     }))
 }
 
-fn format(data: Vec<RecordData<MangaSearch>>, tags: &Data<TagDBService>)->Vec<SearchResponse> {
+pub fn format(data: Vec<RecordData<MangaSearch>>, tags: &Data<TagDBService>)->Vec<SearchResponse> {
     data.into_iter().map(|v|{
         SearchResponse {
             manga_id: v.id.id().to_string(),
