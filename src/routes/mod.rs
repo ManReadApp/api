@@ -1,7 +1,6 @@
-mod chapter;
+pub mod chapter;
 pub mod frontend;
 pub mod image;
-mod manga;
-mod page;
-mod search;
+pub mod manga;
+pub mod page;
 pub mod user;
