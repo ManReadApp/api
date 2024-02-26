@@ -1,3 +1,5 @@
+use crate::services::db::chapter::Chapter;
+use crate::services::db::manga::Manga;
 use crate::services::db::user::User;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -5,8 +7,6 @@ use surrealdb::engine::local::Db;
 use surrealdb::sql::Datetime;
 use surrealdb::Surreal;
 use surrealdb_extras::{SurrealTable, ThingType};
-use crate::services::db::chapter::Chapter;
-use crate::services::db::manga::Manga;
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("user_progress")]

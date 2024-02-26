@@ -13,7 +13,7 @@ log = { version = "0.4", features = ["std"] }
 actix-web = { version = "4.5", features = ["openssl"] }
 chrono = "0.4.34"
 api_structure = {path = "../api_structure"}
-scraper = {path = "../scraper"}
+manread_scraper = {path = "../scraper"}
 regex = "1.10.3"
 
 

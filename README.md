@@ -2,11 +2,14 @@
 
 Part of [ManRead](https://github.com/ManReadApp/ManRead)
 
-### Custom Data Path
+## Custom Data Path
 - change `root_folder: new_path` in config.yml
 - move the spinners folder from `data` to `new_path`
 
-### Register external icons 
+## External Sites
+files need to be in [root_folder]/external
+
+### Register external icons
 - create filter file(utf-8) with a name pattern like this [uri].filter
 - Example: `asuratoon.filter`
 - add filters in the file. valid patterns are `starts_with [str]`, `end_with [str]`, `contains [str]`, `regex [str]`
@@ -14,3 +17,38 @@ Part of [ManRead](https://github.com/ManReadApp/ManRead)
 - add img to folder with naming pattern [uri].[ext]
 - Example: `asuratoon.ico`
 - The uri from the filter must match the icon uri
+Scrape files need to have a .scrape ext
+
+### Register scraper
+Files need to have the `.scrape` ext
+
+Example:
+```
+"uri": "asuratoon", "kind": "Metadata", "request_config": "asuratoon.json"
+image[href] div div#test.est2 ... img.cover
+```
+
+### Header structure
+- uri is required
+- kind is required and can be ['SingleSiteScraper', 'MultiSiteScraper', 'Search', 'Metadata']
+- request_config is optional and points to a json file with request headers
+
+### Selector Line structure
+- field can contain letter, number or _
+- [] is the value that will be extracted
+- valid values are `href`, `text`, `html`, `src`, `attr=custom`,
+- @ prefix gets all items
+- selector is required
+
+### Selector details
+#### Prefixes
+- '.' => class
+- '#' => id
+- no prefix => name
+
+#### More than one identifier
+- ['.', '#', ' ', ' ... '] are separators between identifiers
+- ' ' => next descendant
+- ' ... ' => descendant with unknown htmltags between
+- '.' => additional class on self
+- '#' => additional id on self

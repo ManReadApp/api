@@ -4,4 +4,3 @@ pub mod image;
 pub mod manga;
 pub mod page;
 pub mod user;
-pub mod external;

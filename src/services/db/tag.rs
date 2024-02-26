@@ -1,5 +1,5 @@
-use std::collections::{HashMap};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
@@ -35,6 +35,9 @@ impl TagDBService {
     }
 
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {
-        Self { conn, temp: Default::default() }
+        Self {
+            conn,
+            temp: Default::default(),
+        }
     }
 }

@@ -1,20 +1,20 @@
+use crate::errors::{ApiError, ApiResult};
 use crate::services::db::chapter::Chapter;
 use crate::services::db::manga_kind::Kind;
 use crate::services::db::tag::Tag;
 use crate::services::db::user::User;
 use crate::services::db::version::Version;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::{Display};
-use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use api_structure::error::{ApiErr, ApiErrorType};
 use api_structure::search::{ItemData, ItemOrArray, ItemValue, Order, SearchRequest};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use surrealdb::engine::local::Db;
 use surrealdb::sql::Datetime;
 use surrealdb::Surreal;
 use surrealdb_extras::{RecordData, SurrealSelect, SurrealTable, SurrealTableInfo, ThingType};
-use crate::errors::{ApiError, ApiResult};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("mangas")]
@@ -69,20 +69,24 @@ impl MangaDBService {
         Self { conn }
     }
 
-    pub async fn search(&self, search: SearchRequest, user_id: &str) -> ApiResult<Vec<RecordData<Manga>>> {
+    pub async fn search(
+        &self,
+        search: SearchRequest,
+        user_id: &str,
+    ) -> ApiResult<Vec<RecordData<Manga>>> {
         let query = query_builder(search, user_id)?;
         Ok(Manga::search(&*self.conn, Some(query)).await?)
     }
 }
 
 enum ItemDataDefined {
-    Favorites
+    Favorites,
 }
 
 impl ItemDataDefined {
     fn sql(&self, user_id: &str) -> String {
         match self {
-            ItemDataDefined::Favorites => favorites(user_id)
+            ItemDataDefined::Favorites => favorites(user_id),
         }
     }
 }
@@ -98,7 +102,8 @@ impl TryFrom<ItemData> for ItemDataDefined {
             message: Some("Couldnt find ItemData".to_string()),
             cause: Some(value.name),
             err_type: ApiErrorType::InvalidInput,
-        }.into())
+        }
+        .into())
     }
 }
 
@@ -108,47 +113,41 @@ fn to_sql(item: ItemOrArray, user_id: &str) -> ApiResult<String> {
             let item = ItemDataDefined::try_from(v.data)?;
             if v.not {
                 format!("NOT {}", item.sql(user_id))
-            }else {
+            } else {
                 item.sql(user_id)
             }
-        },
+        }
         ItemOrArray::Array(v) => {
             let mut data = vec![];
             for item in v.items {
                 data.push(to_sql(item, user_id)?)
             }
-            let join = if v.or {
-                "OR"
-            } else {
-                "AND"
-            };
+            let join = if v.or { "OR" } else { "AND" };
             data.join(&format!(" {} ", join))
         }
     })
 }
 
-
 fn query_builder(r: SearchRequest, user_id: &str) -> ApiResult<String> {
-    let asc = if r.desc {
-        "DESC"
-    } else {
-        "ASC"
-    };
+    let asc = if r.desc { "DESC" } else { "ASC" };
     //TODO: list_count
     let query = to_sql(r.query, user_id)?;
-    let order = format!("ORDER BY {} {}", match r.order {
-        Order::Id => "created",
-        Order::Alphabetical => "title",
-        Order::Updated => "updated",
-        Order::LastRead => "read_updated",
-        Order::Popularity => "list_count"
-    }, asc);
+    let order = format!(
+        "ORDER BY {} {}",
+        match r.order {
+            Order::Id => "created",
+            Order::Alphabetical => "title",
+            Order::Updated => "updated",
+            Order::LastRead => "read_updated",
+            Order::Popularity => "list_count",
+        },
+        asc
+    );
     let limit = format!("LIMIT {} START {}", r.limit, r.page - 1);
     if query.is_empty() {
         Ok(format!("{order} {limit}"))
-    }else {
+    } else {
         Ok(format!("WHERE {query} {order} {limit}"))
-
     }
 }
 
@@ -162,7 +161,10 @@ fn popularity() {
     "count(SELECT id FROM user_progress WHERE user_progress.manga = mangas.id)";
 }
 
-fn favorites(user: &str) -> String{
+fn favorites(user: &str) -> String {
     // true/false => favorite
-    format!(r#"count(SELECT id FROM scrape_list WHERE scrape_list.name = "Favorites" AND scrape_list.user = {} scrape_list.mangas CONTAINS mangas.id LIMIT 1) = 1"#, user)
+    format!(
+        r#"count(SELECT id FROM scrape_list WHERE scrape_list.name = "Favorites" AND scrape_list.user = {} scrape_list.mangas CONTAINS mangas.id LIMIT 1) = 1"#,
+        user
+    )
 }

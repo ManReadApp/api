@@ -17,7 +17,7 @@ use crate::services::db::user::UserDBService;
 use crate::services::db::version::VersionDBService;
 use crate::util::create_folders;
 use actix_web::middleware::Logger;
-use actix_web::web::{Data};
+use actix_web::web::Data;
 use actix_web::{web, App, HttpServer, Responder};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use log::info;
@@ -27,7 +27,6 @@ use std::time::Duration;
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
 use tokio::time::sleep;
-use crate::routes::external;
 
 mod env;
 mod errors;
@@ -55,7 +54,7 @@ async fn main() -> std::io::Result<()> {
     let db = Arc::new(establish(config.root_folder.clone(), true).await.unwrap());
     log_url(&config);
     #[cfg(feature = "https")]
-        let ssl_builder = {
+    let ssl_builder = {
         let mut builder =
             openssl::ssl::SslAcceptor::mozilla_intermediate(openssl::ssl::SslMethod::tls())
                 .expect("Couldnt initialize SslAcceptor");
@@ -75,9 +74,10 @@ async fn main() -> std::io::Result<()> {
     let hs = HttpServer::new(move || {
         let logger = Logger::default();
         let app = App::new().wrap(logger);
-        let external = external::register::ExternalSite::init(&cfgc).unwrap();
+        let external =
+            manread_scraper::services::icon::ExternalSite::init(cfgc.root_folder.clone()).unwrap();
         #[cfg(all(feature = "cors", not(feature = "cors-permissive")))]
-            let app = app.wrap(
+        let app = app.wrap(
             actix_cors::Cors::default()
                 .allow_any_header()
                 .allowed_methods(vec!["GET", "POST"])
@@ -85,7 +85,7 @@ async fn main() -> std::io::Result<()> {
                 .max_age(3600),
         );
         #[cfg(all(feature = "cors", feature = "cors-permissive"))]
-            let app = app.wrap(actix_cors::Cors::permissive());
+        let app = app.wrap(actix_cors::Cors::permissive());
         let app = app
             .app_data(Data::from(dbc.clone()))
             .app_data(Data::new(CryptoService {
@@ -123,16 +123,15 @@ async fn main() -> std::io::Result<()> {
                             .service(routes::user::activate_route) //NotVerified
                             .service(routes::manga::home_route) //min User
                             .service(routes::manga::search_route) //min User
-                            .service(routes::manga::cover_route) //min User
-
+                            .service(routes::manga::cover_route), //min User
                     ),
             );
         app
     })
-        .bind(format!("0.0.0.0:{}", config.port))?;
+    .bind(format!("0.0.0.0:{}", config.port))?;
 
     #[cfg(feature = "https")]
-        let hs = hs.bind_openssl(format!("0.0.0.0:{}", config.https_port), ssl_builder)?;
+    let hs = hs.bind_openssl(format!("0.0.0.0:{}", config.https_port), ssl_builder)?;
     let (res, _) = tokio::join!(hs.run(), test(|| { db.clone() }));
     res
 }
