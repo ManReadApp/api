@@ -4,6 +4,7 @@ use crate::widgets::home_page_swithcer::HomePages;
 use crate::window_storage::Page;
 use api_structure::auth::role::Role;
 use api_structure::home::HomeResponse;
+use api_structure::image::MangaCoverRequest;
 use api_structure::search::{
     Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse,
 };
@@ -14,16 +15,16 @@ use egui::{
     vec2, Align, Button, Context, Grid, Image, Label, Layout, ScrollArea, Sense, Spinner, Ui,
 };
 use ethread::ThreadHandler;
+use futures_util::{stream, StreamExt};
+use reqwest::header::AUTHORIZATION;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::sync::Arc;
-use api_structure::image::MangaCoverRequest;
-use reqwest::header::AUTHORIZATION;
 
 pub struct HomePage {
     data: Fetcher<Arc<HomeResponse>>,
     img: Option<ThreadHandler<Arc<HashMap<String, Image<'static>>>>>,
-    init: bool
+    init: bool,
 }
 
 impl Default for HomePage {
@@ -46,37 +47,65 @@ impl App for HomePage {
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(data) = self.data.result().cloned() {
-
                 if let Complete::Json(v) = data {
                     if let Some(imgs) = &self.img {
-                        if let Some(imgs) = imgs.task.ready().cloned()  {
+                        if let Some(imgs) = imgs.task.ready().cloned() {
                             self.show(ui, &v, &imgs)
+                        } else {
+                            ui.add(get_app_data().spinner.lock().unwrap().clone().unwrap());
                         }
-                    }else {
-                        let mut items = v.newest.iter().map(|v|v.manga_id.clone()).collect::<Vec<_>>();
-                        items.append(&mut v.latest_updates.iter().map(|v|v.manga_id.clone()).collect());
-                        items.append(&mut v.favorites.iter().map(|v|v.manga_id.clone()).collect());
-                        items.append(&mut v.trending.iter().map(|v|v.manga_id.clone()).collect());
-                        items.append(&mut v.reading.iter().map(|v|v.manga_id.clone()).collect());
+                    } else {
+                        let mut items = v
+                            .newest
+                            .iter()
+                            .map(|v| v.manga_id.clone())
+                            .collect::<Vec<_>>();
+                        items.append(
+                            &mut v
+                                .latest_updates
+                                .iter()
+                                .map(|v| v.manga_id.clone())
+                                .collect(),
+                        );
+                        items.append(&mut v.favorites.iter().map(|v| v.manga_id.clone()).collect());
+                        items.append(&mut v.trending.iter().map(|v| v.manga_id.clone()).collect());
+                        items.append(&mut v.reading.iter().map(|v| v.manga_id.clone()).collect());
                         let ids = items.into_iter().collect::<HashSet<_>>();
                         let req = async {
                             let app = get_app_data();
-                            let reqs = ids.into_iter().map(|v|async move{
-                                let token = format!("Bearer {}", app.get_access_token().await.unwrap());
-                                let bytes = app.client.post(app.url.join("cover").unwrap()).header(AUTHORIZATION, token).json(&MangaCoverRequest {
-                                    manga_id: v.clone(),
-                                    file_ext: "jpeg".to_string(),
-                                }).send().await.ok()?.bytes().await.ok()?;
-                                Some((v.clone(), Image::from_bytes(format!("cover://{}", v), bytes.to_vec())))
+                            let reqs = ids.into_iter().map(|v| async move {
+                                let token =
+                                    format!("Bearer {}", app.get_access_token().await.unwrap());
+                                let bytes = app
+                                    .client
+                                    .post(app.url.join("cover").unwrap())
+                                    .header(AUTHORIZATION, token)
+                                    .json(&MangaCoverRequest {
+                                        manga_id: v.clone(),
+                                        file_ext: "jpeg".to_string(),
+                                    })
+                                    .send()
+                                    .await
+                                    .ok()?
+                                    .bytes()
+                                    .await
+                                    .ok()?;
+                                Some((
+                                    v.clone(),
+                                    Image::from_bytes(format!("cover://{}", v), bytes.to_vec()),
+                                ))
                             });
-                            let mut res = HashMap::new();
-                            for req in reqs {
-                                if let Some((key, value)) = req.await {
-                                    res.insert(key, value);
-                                }
-                            }
-                            Arc::new(res)
+                            let v = stream::iter(reqs)
+                                .buffer_unordered(10)
+                                .collect::<Vec<_>>()
+                                .await
+                                .into_iter()
+                                .flatten()
+                                .collect::<HashMap<_, _>>();
+
+                            Arc::new(v)
                         };
+
                         self.img = Some(ThreadHandler::new_async(req))
                     }
                 } else {
@@ -161,11 +190,7 @@ fn render_row(label: &str, ui: &mut Ui) {
                 "Trending" => {
                     unimplemented!()
                 }
-                "Reading" => (
-                    vec![],
-                    Order::LastRead,
-                    true,
-                ),
+                "Reading" => (vec![], Order::LastRead, true),
                 "Favorites" => (
                     vec![ItemOrArray::Item(Item {
                         not: false,
