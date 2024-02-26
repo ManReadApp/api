@@ -4,7 +4,8 @@ use egui::{Image, Response, Ui, Widget};
 use std::f64::consts::PI;
 use std::ops::Add;
 
-struct ImageOverlay {
+#[derive(Clone)]
+pub struct ImageOverlay {
     image: Image<'static>,
     text: Option<String>,
     fontsize: f32,
@@ -15,6 +16,7 @@ struct ImageOverlay {
     fixed_banner_len: Option<f32>,
 }
 
+#[derive(Clone)]
 enum Dot {
     None,
     Red,
@@ -40,7 +42,7 @@ impl Dot {
 }
 
 impl ImageOverlay {
-    fn ongoing(image: Image<'static>) -> Self {
+    pub fn ongoing(image: Image<'static>) -> Self {
         Self {
             image,
             text: None,
@@ -53,7 +55,7 @@ impl ImageOverlay {
         }
     }
 
-    fn hiatus(image: Image<'static>) -> Self {
+    pub fn hiatus(image: Image<'static>) -> Self {
         Self {
             image,
             text: None,
@@ -65,7 +67,7 @@ impl ImageOverlay {
             fixed_banner_len: None,
         }
     }
-    fn upcoming(image: Image<'static>) -> Self {
+    pub fn upcoming(image: Image<'static>) -> Self {
         Self {
             image,
             text: None,
@@ -77,7 +79,7 @@ impl ImageOverlay {
             fixed_banner_len: None,
         }
     }
-    fn dropped(image: Image<'static>) -> Self {
+    pub fn dropped(image: Image<'static>) -> Self {
         Self {
             image,
             text: Some("DROPPED".to_string()),
@@ -89,7 +91,7 @@ impl ImageOverlay {
             fixed_banner_len: Some(60.),
         }
     }
-    fn completed(image: Image<'static>) -> Self {
+    pub fn completed(image: Image<'static>) -> Self {
         Self {
             image,
             text: Some("COMPLETED".to_string()),
@@ -154,7 +156,7 @@ impl Widget for ImageOverlay {
         }
         if let Some(flag) = self.flag {
             let size = vec2(20., 20.);
-            let flag = flag.clone().fit_to_exact_size(size);
+            let flag = flag.fit_to_exact_size(size);
             let rect = Rect::from_min_size(img.rect.max - size - vec2(3., 1.), size);
             ui.put(rect, flag);
         }

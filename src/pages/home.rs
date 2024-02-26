@@ -5,9 +5,7 @@ use crate::window_storage::Page;
 use api_structure::auth::role::Role;
 use api_structure::home::HomeResponse;
 use api_structure::image::MangaCoverRequest;
-use api_structure::search::{
-    Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse,
-};
+use api_structure::search::{Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse, Status};
 use api_structure::RequestImpl;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
@@ -17,13 +15,14 @@ use egui::{
 use ethread::ThreadHandler;
 use futures_util::{stream, StreamExt};
 use reqwest::header::AUTHORIZATION;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::fmt::Display;
 use std::sync::Arc;
+use crate::widgets::image_overlay::ImageOverlay;
 
 pub struct HomePage {
     data: Fetcher<Arc<HomeResponse>>,
-    img: Option<ThreadHandler<Arc<HashMap<String, Image<'static>>>>>,
+    img: Option<ThreadHandler<Arc<HashMap<String, ImageOverlay>>>>,
     init: bool,
 }
 
@@ -58,22 +57,22 @@ impl App for HomePage {
                         let mut items = v
                             .newest
                             .iter()
-                            .map(|v| v.manga_id.clone())
+                            .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
                             .collect::<Vec<_>>();
                         items.append(
                             &mut v
                                 .latest_updates
                                 .iter()
-                                .map(|v| v.manga_id.clone())
+                                .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
                                 .collect(),
                         );
-                        items.append(&mut v.favorites.iter().map(|v| v.manga_id.clone()).collect());
-                        items.append(&mut v.trending.iter().map(|v| v.manga_id.clone()).collect());
-                        items.append(&mut v.reading.iter().map(|v| v.manga_id.clone()).collect());
-                        let ids = items.into_iter().collect::<HashSet<_>>();
+                        items.append(&mut v.favorites.iter().map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number))).collect());
+                        items.append(&mut v.trending.iter().map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number))).collect());
+                        items.append(&mut v.reading.iter().map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number))).collect());
+                        let ids = items.into_iter().collect::<HashMap<_,_>>();
                         let req = async {
                             let app = get_app_data();
-                            let reqs = ids.into_iter().map(|v| async move {
+                            let reqs = ids.into_iter().map(|(manga_id, (status, ext, number))| async move {
                                 let token =
                                     format!("Bearer {}", app.get_access_token().await.unwrap());
                                 let bytes = app
@@ -81,8 +80,8 @@ impl App for HomePage {
                                     .post(app.url.join("cover").unwrap())
                                     .header(AUTHORIZATION, token)
                                     .json(&MangaCoverRequest {
-                                        manga_id: v.clone(),
-                                        file_ext: "jpeg".to_string(),
+                                        manga_id: manga_id.clone(),
+                                        file_ext: ext,
                                     })
                                     .send()
                                     .await
@@ -90,9 +89,17 @@ impl App for HomePage {
                                     .bytes()
                                     .await
                                     .ok()?;
+                                let img =Image::from_bytes(format!("cover://{}", manga_id), bytes.to_vec()).fit_to_exact_size(vec2(200., 300.));
+                                let overlay = match status {
+                                    Status::Dropped => ImageOverlay::dropped(img),
+                                    Status::Hiatus => ImageOverlay::hiatus(img),
+                                    Status::Ongoing => ImageOverlay::ongoing(img),
+                                    Status::Completed => ImageOverlay::completed(img),
+                                    Status::Upcoming => ImageOverlay::upcoming(img)
+                                };
+
                                 Some((
-                                    v.clone(),
-                                    Image::from_bytes(format!("cover://{}", v), bytes.to_vec()),
+                                    manga_id.clone(),overlay
                                 ))
                             });
                             let v = stream::iter(reqs)
@@ -117,7 +124,7 @@ impl App for HomePage {
 }
 
 impl HomePage {
-    fn show(&mut self, ui: &mut Ui, data: &HomeResponse, imgs: &HashMap<String, Image<'static>>) {
+    fn show(&mut self, ui: &mut Ui, data: &HomeResponse, imgs: &HashMap<String,ImageOverlay>) {
         show_top_bar(ui, HomePages::Home);
         ScrollArea::vertical().show(ui, |ui| {
             show_row(&data.newest, "Newest", ui, imgs);
@@ -161,7 +168,7 @@ fn show_row(
     item: &[SearchResponse],
     label: &str,
     ui: &mut Ui,
-    imgs: &HashMap<String, Image<'static>>,
+    imgs: &HashMap<String, ImageOverlay>,
 ) {
     let app = get_app_data();
     let v = item
@@ -220,7 +227,7 @@ fn render_row(label: &str, ui: &mut Ui) {
 
 fn item() {}
 
-fn scrollable_items(items: Vec<(String, String, Option<Image<'static>>)>, ui: &mut Ui, id: &str) {
+fn scrollable_items(items: Vec<(String, String, Option<ImageOverlay>)>, ui: &mut Ui, id: &str) {
     ScrollArea::horizontal()
         .auto_shrink([true; 2])
         .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
@@ -233,7 +240,7 @@ fn scrollable_items(items: Vec<(String, String, Option<Image<'static>>)>, ui: &m
                     for (id, text, image) in items {
                         ui.vertical(|ui| {
                             if let Some(img) = image {
-                                if ui.add(img.fit_to_exact_size(vec2(200., 300.))).clicked() {
+                                if ui.add(img).clicked() {
                                     get_app_data().open(Page::MangaInfo(id.clone()))
                                 }
                             } else {
