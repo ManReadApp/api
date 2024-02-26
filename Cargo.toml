@@ -14,6 +14,7 @@ actix-web = { version = "4.5", features = ["openssl"] }
 chrono = "0.4.34"
 api_structure = {path = "../api_structure"}
 scraper = {path = "../scraper"}
+regex = "1.10.3"
 
 
 

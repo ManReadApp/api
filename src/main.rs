@@ -27,6 +27,7 @@ use std::time::Duration;
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
 use tokio::time::sleep;
+use crate::routes::external;
 
 mod env;
 mod errors;
@@ -45,6 +46,7 @@ async fn main() -> std::io::Result<()> {
             "mangas",
             "ssl",
             "temp",
+            "external",
             "users/banner",
             "users/icon",
         ],
@@ -73,6 +75,7 @@ async fn main() -> std::io::Result<()> {
     let hs = HttpServer::new(move || {
         let logger = Logger::default();
         let app = App::new().wrap(logger);
+        let external = external::register::ExternalSite::init(&cfgc).unwrap();
         #[cfg(all(feature = "cors", not(feature = "cors-permissive")))]
             let app = app.wrap(
             actix_cors::Cors::default()
@@ -102,6 +105,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(TagDBService::new(dbc.clone())))
             .app_data(Data::new(UserDBService::new(dbc.clone())))
             .app_data(Data::new(VersionDBService::new(dbc.clone())))
+            .app_data(Data::new(external))
             .service(routes::frontend::frontend_ep)
             .service(routes::frontend::frontend_empty_ep)
             .service(
