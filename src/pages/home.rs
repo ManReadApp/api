@@ -14,28 +14,71 @@ use egui::{
     vec2, Align, Button, Context, Grid, Image, Label, Layout, ScrollArea, Sense, Spinner, Ui,
 };
 use ethread::ThreadHandler;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::sync::Arc;
+use api_structure::image::MangaCoverRequest;
+use reqwest::header::AUTHORIZATION;
 
 pub struct HomePage {
-    data: Fetcher<HomeResponse>,
-    img: Option<ThreadHandler<HashMap<String, Image<'static>>>>,
+    data: Fetcher<Arc<HomeResponse>>,
+    img: Option<ThreadHandler<Arc<HashMap<String, Image<'static>>>>>,
+    init: bool
 }
 
 impl Default for HomePage {
     fn default() -> Self {
+        let mut req = Fetcher::new(HomeResponse::request(&get_app_data().url).unwrap());
+        req.send();
         Self {
-            data: Fetcher::new(HomeResponse::request(&get_app_data().url).unwrap()),
+            data: req,
             img: None,
+            init: false,
         }
     }
 }
 
 impl App for HomePage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
+        if !self.init {
+            self.init = true;
+            self.data.set_ctx(ctx.clone())
+        }
         egui::CentralPanel::default().show(ctx, |ui| {
-            if let Some(data) = self.data.result() {
+            if let Some(data) = self.data.result().cloned() {
+
                 if let Complete::Json(v) = data {
+                    if let Some(imgs) = &self.img {
+                        if let Some(imgs) = imgs.task.ready().cloned()  {
+                            self.show(ui, &v, &imgs)
+                        }
+                    }else {
+                        let mut items = v.newest.iter().map(|v|v.manga_id.clone()).collect::<Vec<_>>();
+                        items.append(&mut v.latest_updates.iter().map(|v|v.manga_id.clone()).collect());
+                        items.append(&mut v.favorites.iter().map(|v|v.manga_id.clone()).collect());
+                        items.append(&mut v.trending.iter().map(|v|v.manga_id.clone()).collect());
+                        items.append(&mut v.reading.iter().map(|v|v.manga_id.clone()).collect());
+                        let ids = items.into_iter().collect::<HashSet<_>>();
+                        let req = async {
+                            let app = get_app_data();
+                            let reqs = ids.into_iter().map(|v|async move{
+                                let token = format!("Bearer {}", app.get_access_token().await.unwrap());
+                                let bytes = app.client.post(app.url.join("cover").unwrap()).header(AUTHORIZATION, token).json(&MangaCoverRequest {
+                                    manga_id: v.clone(),
+                                    file_ext: "jpeg".to_string(),
+                                }).send().await.ok()?.bytes().await.ok()?;
+                                Some((v.clone(), Image::from_bytes(format!("cover://{}", v), bytes.to_vec())))
+                            });
+                            let mut res = HashMap::new();
+                            for req in reqs {
+                                if let Some((key, value)) = req.await {
+                                    res.insert(key, value);
+                                }
+                            }
+                            Arc::new(res)
+                        };
+                        self.img = Some(ThreadHandler::new_async(req))
+                    }
                 } else {
                     data.display_error(ui)
                 }
@@ -119,28 +162,26 @@ fn render_row(label: &str, ui: &mut Ui) {
                     unimplemented!()
                 }
                 "Reading" => (
-                    vec![ItemOrArray::Item(Item {
-                        data: ItemData::enum_("Reading"),
-                        not: false,
-                    })],
+                    vec![],
                     Order::LastRead,
                     true,
                 ),
                 "Favorites" => (
                     vec![ItemOrArray::Item(Item {
-                        data: ItemData::enum_("Favorite"),
                         not: false,
+                        data: ItemData::enum_("Favorites"),
                     })],
                     Order::Alphabetical,
-                    true,
+                    false,
                 ),
-                "Latest Updates" => (vec![], Order::Updated, false),
+                "Latest Updates" => (vec![], Order::Updated, true),
                 _ => unreachable!(),
             };
 
             *get_app_data().search.lock().unwrap() = SearchRequest {
                 order,
                 desc,
+                limit: 20,
                 page: 1,
                 query: ItemOrArray::Array(Array {
                     or: false,
@@ -167,7 +208,7 @@ fn scrollable_items(items: Vec<(String, String, Option<Image<'static>>)>, ui: &m
                     for (id, text, image) in items {
                         ui.vertical(|ui| {
                             if let Some(img) = image {
-                                if ui.add(img).clicked() {
+                                if ui.add(img.fit_to_exact_size(vec2(200., 300.))).clicked() {
                                     get_app_data().open(Page::MangaInfo(id.clone()))
                                 }
                             } else {

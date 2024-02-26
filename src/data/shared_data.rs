@@ -112,7 +112,8 @@ impl SharedData {
             search: Arc::new(Mutex::new(SearchRequest {
                 order: Order::Id,
                 desc: false,
-                page: 0,
+                limit: 20,
+                page: 1,
                 query: ItemOrArray::Array(Array {
                     or: false,
                     items: vec![],

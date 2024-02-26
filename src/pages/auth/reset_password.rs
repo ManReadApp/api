@@ -150,7 +150,6 @@ impl ResetPasswordPage {
                     email: self.email_reset,
                 });
                 self.request.send()
-                //todo: request password reset
             }
             ui.add_space(4.0);
         }

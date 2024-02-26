@@ -199,6 +199,7 @@ enum Response<T> {
     Done(Complete<T>),
 }
 
+#[derive(Clone)]
 pub enum Complete<T> {
     ApiError(ApiErr),
     Error(ClientError),
