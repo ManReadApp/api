@@ -14,5 +14,5 @@ any("api_structure::auth::role::Role::Admin", "api_structure::auth::role::Role::
 ty = "api_structure::auth::role::Role"
 )]
 async fn search(Json(request): Json<SearchRequest>, manga: Data<MangaDBService>, tags: Data<TagDBService>, user: ReqData<Claim>) -> ApiResult<Json<Vec<SearchResponse>>> {
-    Ok(Json(format(manga.search(request, &user.id).await?, &tags).await))
+    Ok(Json(format(manga.search(request, &user.id).await?, &tags).await?))
 }

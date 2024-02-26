@@ -5,7 +5,7 @@ use crate::services::db::user::User;
 use crate::services::db::version::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use api_structure::error::{ApiErr, ApiErrorType};

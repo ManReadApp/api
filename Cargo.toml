@@ -41,6 +41,7 @@ jsonwebtoken = "9.2"
 bcrypt = "0.15"
 actix-web-grants = "4.0"
 actix-web-httpauth = "0.8"
+rand = "0.8.5"
 
 [features]
 default = ["detailed_error_responses", "log-ip", "cors", "cors-permissive"]

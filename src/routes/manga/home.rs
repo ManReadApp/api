@@ -3,7 +3,8 @@ use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
 use api_structure::home::HomeResponse;
-use api_structure::search::{Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse};
+use api_structure::search::{Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse, Status};
+use rand::Rng;
 use surrealdb_extras::RecordData;
 use crate::errors::{ApiResult};
 use crate::services::db::manga::{Manga, MangaDBService, MangaSearch};
@@ -68,25 +69,29 @@ pub async fn home(manga: Data<MangaDBService>, tags: Data<TagDBService>, user: R
     };
     Ok(Json(HomeResponse {
         trending: vec![], //format(manga.search(trending, &user.id).await?, &tags).await,
-        newest: format(manga.search(newest, &user.id).await?, &tags).await,
-        latest_updates: format(manga.search(latest_updates, &user.id).await?, &tags).await,
+        newest: format(manga.search(newest, &user.id).await?, &tags).await?,
+        latest_updates: format(manga.search(latest_updates, &user.id).await?, &tags).await?,
         favorites: vec![],//format(manga.search(favorites, &user.id).await?, &tags).await,
         reading: vec![],//format(manga.search(reading, &user.id).await?, &tags).await,
     }))
 }
 
-pub async fn format(data: Vec<RecordData<Manga>>, tags: &Data<TagDBService>)->Vec<SearchResponse> {
+pub async fn format(data: Vec<RecordData<Manga>>, tags: &Data<TagDBService>)-> ApiResult<Vec<SearchResponse>> {
     let mut result = vec![];
     for v in data {
         let mut t:Vec<String> = vec![];
         for tag in v.data.tags {
             t.push(tags.get_tag(&tag.thing.id().to_string()).await.unwrap().tag)
         }
+        let number = rand::thread_rng().gen_range(0..v.data.covers.len());
         result.push(SearchResponse {
             manga_id: v.id.id().to_string(),
             titles: v.data.titles,
-            tags: t
+            tags: t,
+            status: Status::try_from(v.data.status)?,
+            ext: v.data.covers.get(number).unwrap().clone(),
+            number: number as u32,
         })
     }
-    result
+    Ok(result)
 }
