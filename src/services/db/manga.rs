@@ -69,8 +69,8 @@ impl MangaDBService {
         Self { conn }
     }
 
-    pub async fn search(&self, search: SearchRequest) -> ApiResult<Vec<RecordData<MangaSearch>>> {
-        let query = query_builder(search)?;
+    pub async fn search(&self, search: SearchRequest, user_id: &str) -> ApiResult<Vec<RecordData<Manga>>> {
+        let query = query_builder(search, user_id)?;
         Ok(Manga::search(&*self.conn, Some(query)).await?)
     }
 }
@@ -79,9 +79,11 @@ enum ItemDataDefined {
     Favorites
 }
 
-impl Display for ItemDataDefined {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+impl ItemDataDefined {
+    fn sql(&self, user_id: &str) -> String {
+        match self {
+            ItemDataDefined::Favorites => favorites(user_id)
+        }
     }
 }
 
@@ -89,8 +91,8 @@ impl TryFrom<ItemData> for ItemDataDefined {
     type Error = ApiError;
 
     fn try_from(value: ItemData) -> Result<Self, Self::Error> {
-        if value.name.as_str() == "Favorites" && value.value == ItemValue::None {
-            Ok(ItemDataDefined::Favorites)
+        if value.name.as_str() == "Favorites" && matches!(value.value, ItemValue::None) {
+            return Ok(ItemDataDefined::Favorites);
         }
         Err(ApiErr {
             message: Some("Couldnt find ItemData".to_string()),
@@ -100,20 +102,20 @@ impl TryFrom<ItemData> for ItemDataDefined {
     }
 }
 
-fn to_sql(item: ItemOrArray) -> ApiResult<String> {
+fn to_sql(item: ItemOrArray, user_id: &str) -> ApiResult<String> {
     Ok(match item {
         ItemOrArray::Item(v) => {
             let item = ItemDataDefined::try_from(v.data)?;
             if v.not {
-                format!("NOT {}", item)
+                format!("NOT {}", item.sql(user_id))
             }else {
-                item.to_string()
+                item.sql(user_id)
             }
         },
         ItemOrArray::Array(v) => {
             let mut data = vec![];
             for item in v.items {
-                data.push(to_sql(item)?)
+                data.push(to_sql(item, user_id)?)
             }
             let join = if v.or {
                 "OR"
@@ -126,14 +128,14 @@ fn to_sql(item: ItemOrArray) -> ApiResult<String> {
 }
 
 
-fn query_builder(r: SearchRequest) -> ApiResult<String> {
+fn query_builder(r: SearchRequest, user_id: &str) -> ApiResult<String> {
     let asc = if r.desc {
         "DESC"
     } else {
         "ASC"
     };
-    //TODO: read_updated,list_count
-    let query = to_sql(r.query)?;
+    //TODO: list_count
+    let query = to_sql(r.query, user_id)?;
     let order = format!("ORDER BY {} {}", match r.order {
         Order::Id => "created",
         Order::Alphabetical => "title",
@@ -141,6 +143,26 @@ fn query_builder(r: SearchRequest) -> ApiResult<String> {
         Order::LastRead => "read_updated",
         Order::Popularity => "list_count"
     }, asc);
-    let limit = format!("LIMIT {} OFFSET {}", r.limit, r.page - 1);
-    Ok(format!("WHERE {query} {order} {limit}"))
+    let limit = format!("LIMIT {} START {}", r.limit, r.page - 1);
+    if query.is_empty() {
+        Ok(format!("{order} {limit}"))
+    }else {
+        Ok(format!("WHERE {query} {order} {limit}"))
+
+    }
+}
+
+fn last_read() {
+    //f32, datetime
+    "SELECT progress, updated as read_updated FROM user_progress WHERE user_progress.user = {} AND user_progress.manga = mangas.id ORDER BY user_progress.updated DESC LIMIT 1";
+}
+
+fn popularity() {
+    // number => list_count
+    "count(SELECT id FROM user_progress WHERE user_progress.manga = mangas.id)";
+}
+
+fn favorites(user: &str) -> String{
+    // true/false => favorite
+    format!(r#"count(SELECT id FROM scrape_list WHERE scrape_list.name = "Favorites" AND scrape_list.user = {} scrape_list.mangas CONTAINS mangas.id LIMIT 1) = 1"#, user)
 }

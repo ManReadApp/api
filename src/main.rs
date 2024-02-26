@@ -119,6 +119,8 @@ async fn main() -> std::io::Result<()> {
                             .service(routes::user::activate_route) //NotVerified
                             .service(routes::manga::home_route) //min User
                             .service(routes::manga::search_route) //min User
+                            .service(routes::manga::cover_route) //min User
+
                     ),
             );
         app

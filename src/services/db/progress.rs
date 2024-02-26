@@ -1,4 +1,3 @@
-use crate::services::db::chapter_version::ChapterVersion;
 use crate::services::db::user::User;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -6,13 +5,16 @@ use surrealdb::engine::local::Db;
 use surrealdb::sql::Datetime;
 use surrealdb::Surreal;
 use surrealdb_extras::{SurrealTable, ThingType};
+use crate::services::db::chapter::Chapter;
+use crate::services::db::manga::Manga;
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("user_progress")]
 #[sql(["DEFINE EVENT user_progress_updated ON TABLE user_progress WHEN $event = \"UPDATE\" AND $before.updated == $after.updated THEN (UPDATE $after.id SET updated = time::now() );"])]
 pub struct UserProgress {
     user: ThingType<User>,
-    chapter: ThingType<ChapterVersion>,
+    manga: ThingType<Manga>,
+    chapter: ThingType<Chapter>,
     #[opt(exclude = true)]
     progress: f64,
     #[opt(exclude = true)]

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 surrealdb = { version = "1.2.0", features = ["kv-speedb"] }
-surrealdb-extras = "0.1.6"
+surrealdb-extras = "0.1.7"
 serde = { version = "1.0.196", features = ["derive"] }
 log = { version = "0.4", features = ["std"] }
 actix-web = { version = "4.5", features = ["openssl"] }
