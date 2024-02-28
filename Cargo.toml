@@ -12,8 +12,8 @@ serde = { version = "1.0.196", features = ["derive"] }
 log = { version = "0.4", features = ["std"] }
 actix-web = { version = "4.5", features = ["openssl"] }
 chrono = "0.4.34"
-api_structure = {path = "../api_structure"}
-manread_scraper = {path = "../scraper"}
+api_structure = { path = "../api_structure" }
+manread_scraper = { path = "../scraper" }
 regex = "1.10.3"
 
 
@@ -53,4 +53,5 @@ log-ip = ["dep:local-ip-address"]
 cors = ["dep:actix-cors"]
 cors-permissive = ["cors", "dep:actix-cors"]
 encryption = []
-content-type-from-filename=[]
+content-type-from-filename = []
+dev = []

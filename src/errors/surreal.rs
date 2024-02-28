@@ -12,3 +12,13 @@ impl From<Error> for ApiError {
         .into()
     }
 }
+
+impl ApiError {
+    pub fn db_error() -> Self {
+        ApiErr {
+            message: Some("couldnt find record".to_string()),
+            cause: None,
+            err_type: ApiErrorType::InternalError,
+        }.into()
+    }
+}

@@ -19,6 +19,10 @@ files need to be in [root_folder]/external
 - The uri from the filter must match the icon uri
 Scrape files need to have a .scrape ext
 
+### Usefull tools for svg icons
+- [svg-path-editor](https://yqnn.github.io/svg-path-editor/)
+- [svg-crop](https://svgcrop.com/)
+
 ### Register scraper
 Files need to have the `.scrape` ext
 

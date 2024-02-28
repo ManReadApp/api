@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::errors::{ApiError, ApiResult};
 use crate::services::db::tag::Tag;
 use api_structure::auth::register::Gender;
@@ -5,7 +6,7 @@ use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use surrealdb::engine::local::Db;
 use surrealdb::opt::PatchOp;
 use surrealdb::sql::{Datetime, Thing};
@@ -51,9 +52,24 @@ pub struct UserRolePassword {
 
 pub struct UserDBService {
     pub conn: Arc<Surreal<Db>>,
+    temp: Arc<Mutex<HashMap<String, String>>>
 }
 
 impl UserDBService {
+    pub async fn get_username(&self, id: &str) -> Option<String> {
+        if let Some(v) = self.temp.lock().unwrap().get(id) {
+            return Some(v.clone());
+        }
+        let mut hm = HashMap::new();
+        let res: Vec<RecordData<User>> = User::all(&*self.conn).await.ok()?;
+        for mut item in res {
+            hm.insert(item.id.id().to_string(), item.data.names.remove(0));
+        }
+        let v = hm.get(id).cloned();
+        *self.temp.lock().unwrap() = hm;
+        v
+    }
+
     pub async fn get_id(&self, ident: &str, email: bool) -> ApiResult<String> {
         let search = Self::emailusername_query(email, ident);
         let mut user = User::search(&*self.conn, Some(search)).await?;
@@ -124,7 +140,7 @@ impl UserDBService {
         Ok(Role::from(role))
     }
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {
-        Self { conn }
+        Self { conn, temp: Default::default() }
     }
 
     pub async fn new_user(

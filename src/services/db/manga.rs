@@ -12,9 +12,9 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Datetime;
+use surrealdb::sql::{Datetime, Thing};
 use surrealdb::Surreal;
-use surrealdb_extras::{RecordData, SurrealSelect, SurrealTable, SurrealTableInfo, ThingType};
+use surrealdb_extras::{RecordData, SurrealSelect, SurrealTable, SurrealTableInfo, ThingFunc, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("mangas")]
@@ -67,6 +67,15 @@ pub struct MangaDBService {
 impl MangaDBService {
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {
         Self { conn }
+    }
+
+    pub async fn get(&self, id: &str) -> ApiResult<RecordData<Manga>> {
+        let thing = ThingFunc::from(Thing::from(("manga", id)));
+        Ok(thing.get(&*self.conn).await?.ok_or(ApiErr {
+            message: Some("failed to find record".to_string()),
+            cause: None,
+            err_type: ApiErrorType::InternalError,
+        })?)
     }
 
     pub async fn search(

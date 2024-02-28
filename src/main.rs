@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use crate::env::config::Config;
 use crate::services::auth_service::validator;
 use crate::services::crypto_service::CryptoService;
@@ -27,6 +28,7 @@ use std::time::Duration;
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
 use tokio::time::sleep;
+use crate::services::uri_service::UriService;
 
 mod env;
 mod errors;
@@ -50,6 +52,8 @@ async fn main() -> std::io::Result<()> {
             "users/icon",
         ],
     )?;
+    #[cfg(feature = "dev")]
+    let _ =  std::os::unix::fs::symlink(std::fs::canonicalize(&config.root_folder).unwrap(), PathBuf::from("../scraper/tests"));
     env_logger::init_from_env(env_logger::Env::new().default_filter_or(config.rust_log.clone()));
     let db = Arc::new(establish(config.root_folder.clone(), true).await.unwrap());
     log_url(&config);
@@ -75,7 +79,7 @@ async fn main() -> std::io::Result<()> {
         let logger = Logger::default();
         let app = App::new().wrap(logger);
         let external =
-            manread_scraper::services::icon::ExternalSite::init(cfgc.root_folder.clone()).unwrap();
+            UriService::new(manread_scraper::ExternalSite::init(cfgc.root_folder.clone()).unwrap());
         #[cfg(all(feature = "cors", not(feature = "cors-permissive")))]
         let app = app.wrap(
             actix_cors::Cors::default()

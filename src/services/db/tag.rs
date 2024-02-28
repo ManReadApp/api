@@ -14,8 +14,18 @@ pub struct Tag {
     pub sex: u64,
 }
 
+impl Tag {
+    pub fn to_public(self) -> api_structure::info::Tag {
+        api_structure::info::Tag {
+            tag: self.tag,
+            description: self.description,
+            sex: self.sex,
+        }
+    } 
+}
+
 pub struct TagDBService {
-    conn: Arc<Surreal<Db>>,
+    pub conn: Arc<Surreal<Db>>,
     temp: Arc<Mutex<HashMap<String, Tag>>>,
 }
 

@@ -1,5 +1,5 @@
 use crate::errors::ApiError;
-use manread_scraper::error::ScrapeError;
+use manread_scraper::ScrapeError;
 
 impl From<ScrapeError> for ApiError {
     fn from(error: ScrapeError) -> Self {
