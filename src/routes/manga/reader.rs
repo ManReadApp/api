@@ -24,14 +24,14 @@ pub async fn info(
     for chapter in manga.data.chapters {
         chapters.push(chapter_s.get_reader(chapter).await?);
     }
-    chapters.sort_by(|a, b| a.chapter.partial_cmp(&b.chapter).unwrap_or_default());
+    chapters.sort_by(|a, b| a.chapter.partial_cmp(&b.chapter).unwrap());
     let (open_chapter, progress) = match req.chapter_id {
         None => progress_s
             .get_progress(user.id.as_str(), manga.id)
             .await
             .unwrap_or_else(|| {
                 (
-                    chapters.first().map(|v| v.chapter_id).unwrap_or_default(),
+                    chapters.first().map(|v| v.chapter_id.clone()).unwrap_or_default(),
                     0.0,
                 )
             }),

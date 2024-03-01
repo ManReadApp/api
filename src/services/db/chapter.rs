@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::{Datetime, Thing};
+use surrealdb::sql::{Datetime};
 use surrealdb::Surreal;
-use surrealdb_extras::{RecordData, SurrealSelect, SurrealTable, ThingFunc, ThingType};
+use surrealdb_extras::{RecordData, SurrealSelect, SurrealTable, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("chapters")]
@@ -36,22 +36,6 @@ pub struct ChapterReaderPart {
     pub versions: HashMap<String, ThingType<ChapterVersion>>,
 }
 
-impl From<ChapterReaderPart> for ReaderChapter {
-    fn from(value: ChapterReaderPart) -> Self {
-        Self {
-            titles: value.titles,
-            chapter: value.chapter,
-            sources: value.sources,
-            release_date: value.release_date.map(|v| v.to_string()),
-            versions: value
-                .versions
-                .into_iter()
-                .map(|(key, value)| (key, value.thing.id().to_string()))
-                .collect(),
-        }
-    }
-}
-
 pub struct ChapterDBService {
     conn: Arc<Surreal<Db>>,
 }
@@ -66,6 +50,17 @@ impl ChapterDBService {
             .get_part(&*self.conn)
             .await?
             .ok_or(ApiError::db_error())?;
-        Ok(res.data.into())
+        Ok(ReaderChapter {
+            chapter_id: res.id.id().to_string(),
+            titles: res.data.titles,
+            chapter: res.data.chapter,
+            sources: res.data.sources,
+            release_date: res.data.release_date.map(|v| v.to_string()),
+            versions: res.data
+                .versions
+                .into_iter()
+                .map(|(key, value)| (key, value.thing.id().to_string()))
+                .collect(),
+        })
     }
 }
