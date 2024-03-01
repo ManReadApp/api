@@ -1,11 +1,12 @@
+use crate::errors::{ApiError, ApiResult};
 use crate::services::db::page::Page;
 use crate::services::db::version::Version;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::Datetime;
+use surrealdb::sql::{Datetime, Thing};
 use surrealdb::Surreal;
-use surrealdb_extras::{SurrealTable, ThingType};
+use surrealdb_extras::{RecordData, SurrealSelect, SurrealTable, ThingFunc, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("chapter_version_connections")]
@@ -19,6 +20,11 @@ pub struct ChapterVersion {
     pub created: Datetime,
 }
 
+#[derive(SurrealSelect, Deserialize)]
+pub struct Pages {
+    pub pages: Vec<ThingType<Page>>,
+}
+
 pub struct ChapterVersionDBService {
     conn: Arc<Surreal<Db>>,
 }
@@ -26,5 +32,14 @@ pub struct ChapterVersionDBService {
 impl ChapterVersionDBService {
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {
         Self { conn }
+    }
+
+    pub async fn get(&self, id: &str) -> ApiResult<Vec<ThingType<Page>>> {
+        let id = ThingFunc::from(Thing::from(("chapter_version_connections", id)));
+        let v: RecordData<Pages> = id
+            .get_part(&*self.conn)
+            .await?
+            .ok_or(ApiError::db_error())?;
+        Ok(v.data.pages)
     }
 }

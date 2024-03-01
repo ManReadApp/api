@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::{Datetime};
+use surrealdb::sql::Datetime;
 use surrealdb::Surreal;
 use surrealdb_extras::{RecordData, SurrealSelect, SurrealTable, ThingType};
 
@@ -56,7 +56,8 @@ impl ChapterDBService {
             chapter: res.data.chapter,
             sources: res.data.sources,
             release_date: res.data.release_date.map(|v| v.to_string()),
-            versions: res.data
+            versions: res
+                .data
                 .versions
                 .into_iter()
                 .map(|(key, value)| (key, value.thing.id().to_string()))

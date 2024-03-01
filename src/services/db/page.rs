@@ -1,9 +1,11 @@
+use crate::errors::{ApiError, ApiResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use surrealdb::engine::local::Db;
+use surrealdb::key::database::pa::Pa;
 use surrealdb::sql::Datetime;
 use surrealdb::Surreal;
-use surrealdb_extras::{SurrealTable, ThingType};
+use surrealdb_extras::{RecordData, SurrealTable, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("manga_pages")]
@@ -27,5 +29,13 @@ pub struct PageDBService {
 impl PageDBService {
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {
         Self { conn }
+    }
+
+    pub async fn get(&self, page: ThingType<Page>) -> ApiResult<Page> {
+        let v: RecordData<Page> = page
+            .get_part(&*self.conn)
+            .await?
+            .ok_or(ApiError::db_error())?;
+        Ok(v.data)
     }
 }

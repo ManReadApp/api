@@ -6,7 +6,9 @@ use std::sync::Arc;
 use surrealdb::engine::local::Db;
 use surrealdb::sql::Datetime;
 use surrealdb::Surreal;
-use surrealdb_extras::{SurrealTable, ThingFunc, ThingType};
+use surrealdb_extras::{
+    RecordData, SurrealSelect, SurrealTable, SurrealTableInfo, ThingFunc, ThingType,
+};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("user_progress")]
@@ -21,6 +23,12 @@ pub struct UserProgress {
     updated: Datetime,
 }
 
+#[derive(SurrealSelect, Deserialize)]
+pub struct Progress {
+    chapter: ThingType<Chapter>,
+    progress: f64,
+}
+
 pub struct ProgressDBService {
     conn: Arc<Surreal<Db>>,
 }
@@ -31,6 +39,21 @@ impl ProgressDBService {
     }
 
     pub async fn get_progress(&self, user: &str, manga: ThingFunc) -> Option<(String, f64)> {
-        todo!()
+        let mut res: Vec<RecordData<Progress>> = User::search(
+            &*self.conn,
+            Some(format!(
+                "WHERE user = users:{} AND manga = {} ORDER BY updated DESC LIMIT 1",
+                user,
+                manga.to_string()
+            )),
+        )
+        .await
+        .ok()?;
+        if res.is_empty() {
+            None
+        } else {
+            let v = res.remove(0);
+            Some((v.data.chapter.thing.id().to_string(), v.data.progress))
+        }
     }
 }
