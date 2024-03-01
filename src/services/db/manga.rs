@@ -72,7 +72,7 @@ impl MangaDBService {
     }
 
     pub async fn get(&self, id: &str) -> ApiResult<RecordData<Manga>> {
-        let thing = ThingFunc::from(Thing::from(("manga", id)));
+        let thing = ThingFunc::from(Thing::from(("mangas", id)));
         Ok(thing.get(&*self.conn).await?.ok_or(ApiErr {
             message: Some("failed to find record".to_string()),
             cause: None,

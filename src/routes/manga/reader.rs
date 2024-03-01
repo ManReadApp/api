@@ -10,9 +10,9 @@ use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
 use api_structure::reader::{
-    MangaReaderRequest, MangaReaderResponse, ReaderPage, ReaderPageRequest, ReaderPageResponse,
+    MangaReaderRequest, MangaReaderResponse, Progress, ReaderPage, ReaderPageRequest,
+    ReaderPageResponse,
 };
-use std::collections::HashMap;
 
 #[post("/pages")]
 #[protect(
@@ -30,24 +30,55 @@ pub async fn get_pages(
     cvs: Data<ChapterVersionDBService>,
     page_s: Data<PageDBService>,
 ) -> ApiResult<Json<ReaderPageResponse>> {
-    let mut pages = HashMap::new();
+    let mut pages = Vec::new();
     for page in cvs.get(&req.chapter_version_id).await? {
         let page = page_s.get(page).await?;
-        pages.insert(
+        pages.push((
             page.page,
             ReaderPage {
                 width: page.width,
                 height: page.height,
                 ext: page.ext,
                 translation: page.translation,
+                progress: Progress {
+                    width_start: 0.0,
+                    height_start: 0.0,
+                    width_end: 0.0,
+                    height_end: 0.0,
+                },
             },
-        );
+        ));
+    }
+    let mut max_width = 0;
+    let mut max_height = 0;
+    for (_, page) in pages.iter() {
+        max_width += page.width;
+        max_height += page.height;
+    }
+    pages.sort_by(|(a, _), (b, _)| a.cmp(&b));
+    let mut width = 0;
+    let mut height = 0;
+    let max_width = max_width as f64;
+    let max_height = max_height as f64;
+    for (_, page) in &mut pages {
+        let width_start = width as f64 / max_width;
+        let height_start = height as f64 / max_height;
+        width += page.width;
+        height += page.height;
+        let width_end = width as f64 / max_width;
+        let height_end = height as f64 / max_height;
+        page.progress = Progress {
+            width_start,
+            height_start,
+            width_end,
+            height_end,
+        }
     }
     Ok(Json(ReaderPageResponse {
         version_id: req.chapter_version_id,
         hide_top: 0.0,
         hide_bottom: 0.0,
-        pages,
+        pages: pages.into_iter().collect(),
     }))
 }
 
