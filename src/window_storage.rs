@@ -4,7 +4,7 @@ use crate::pages::auth::sign_in::LoginPage;
 use crate::pages::auth::sign_up::SignUpPage;
 use crate::pages::auth::sign_up_info::SignUpInfoPage;
 use crate::pages::auth::verify_account::VerifyAccountPage;
-use crate::pages::{HomePage, LoadingInitRefreshPage, PlaygroundPage};
+use crate::pages::{HomePage, InfoPage, LoadingInitRefreshPage, PlaygroundPage};
 use eframe::App;
 use std::collections::HashSet;
 
@@ -58,7 +58,7 @@ pub struct Windows {
     verfiy_account: Option<VerifyAccountPage>,
     #[cfg(feature = "dev")]
     playground: Option<PlaygroundPage>,
-    manga_info: Option<()>,
+    manga_info: Option<InfoPage>,
     search: Option<()>,
     add_manga: Option<()>,
     you: Option<()>,
@@ -129,7 +129,9 @@ impl Windows {
                 self.verfiy_account
                     .get_or_insert_with(VerifyAccountPage::default) as &mut dyn App
             }
-            Page::MangaInfo(v) => todo!(),
+            Page::MangaInfo(v) => {
+                self.manga_info.get_or_insert_with(|| InfoPage::new(v)) as &mut dyn App
+            }
             Page::Search => todo!(),
             Page::AddManga => todo!(),
             Page::You => todo!(),

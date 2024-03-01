@@ -1,11 +1,14 @@
 use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
 use crate::widgets::home_page_swithcer::HomePages;
+use crate::widgets::image_overlay::ImageOverlay;
 use crate::window_storage::Page;
 use api_structure::auth::role::Role;
 use api_structure::home::HomeResponse;
 use api_structure::image::MangaCoverRequest;
-use api_structure::search::{Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse, Status};
+use api_structure::search::{
+    Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse, Status,
+};
 use api_structure::RequestImpl;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
@@ -15,10 +18,9 @@ use egui::{
 use ethread::ThreadHandler;
 use futures_util::{stream, StreamExt};
 use reqwest::header::AUTHORIZATION;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::Arc;
-use crate::widgets::image_overlay::ImageOverlay;
 
 pub struct HomePage {
     data: Fetcher<Arc<HomeResponse>>,
@@ -66,42 +68,65 @@ impl App for HomePage {
                                 .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
                                 .collect(),
                         );
-                        items.append(&mut v.favorites.iter().map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number))).collect());
-                        items.append(&mut v.trending.iter().map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number))).collect());
-                        items.append(&mut v.reading.iter().map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number))).collect());
-                        let ids = items.into_iter().collect::<HashMap<_,_>>();
+                        items.append(
+                            &mut v
+                                .favorites
+                                .iter()
+                                .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
+                                .collect(),
+                        );
+                        items.append(
+                            &mut v
+                                .trending
+                                .iter()
+                                .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
+                                .collect(),
+                        );
+                        items.append(
+                            &mut v
+                                .reading
+                                .iter()
+                                .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
+                                .collect(),
+                        );
+                        let ids = items.into_iter().collect::<HashMap<_, _>>();
                         let req = async {
                             let app = get_app_data();
-                            let reqs = ids.into_iter().map(|(manga_id, (status, ext, number))| async move {
-                                let token =
-                                    format!("Bearer {}", app.get_access_token().await.unwrap());
-                                let bytes = app
-                                    .client
-                                    .post(app.url.join("cover").unwrap())
-                                    .header(AUTHORIZATION, token)
-                                    .json(&MangaCoverRequest {
-                                        manga_id: manga_id.clone(),
-                                        file_ext: ext,
-                                    })
-                                    .send()
-                                    .await
-                                    .ok()?
-                                    .bytes()
-                                    .await
-                                    .ok()?;
-                                let img =Image::from_bytes(format!("cover://{}", manga_id), bytes.to_vec()).fit_to_exact_size(vec2(200., 300.));
-                                let overlay = match status {
-                                    Status::Dropped => ImageOverlay::dropped(img),
-                                    Status::Hiatus => ImageOverlay::hiatus(img),
-                                    Status::Ongoing => ImageOverlay::ongoing(img),
-                                    Status::Completed => ImageOverlay::completed(img),
-                                    Status::Upcoming => ImageOverlay::upcoming(img)
-                                };
+                            let reqs = ids.into_iter().map(
+                                |(manga_id, (status, ext, number))| async move {
+                                    let token =
+                                        format!("Bearer {}", app.get_access_token().await.unwrap());
+                                    let bytes = app
+                                        .client
+                                        .post(app.url.join("cover").unwrap())
+                                        .header(AUTHORIZATION, token)
+                                        .json(&MangaCoverRequest {
+                                            manga_id: manga_id.clone(),
+                                            file_ext: ext,
+                                        })
+                                        .send()
+                                        .await
+                                        .ok()?
+                                        .bytes()
+                                        .await
+                                        .ok()?;
+                                    let img = Image::from_bytes(
+                                        format!("cover://{}", manga_id),
+                                        bytes.to_vec(),
+                                    )
+                                    .sense(Sense::click())
+                                    .fit_to_exact_size(vec2(200., 300.));
+                                    let overlay = match status {
+                                        Status::Dropped => ImageOverlay::dropped(img),
+                                        Status::Hiatus => ImageOverlay::hiatus(img),
+                                        Status::Ongoing => ImageOverlay::ongoing(img),
+                                        Status::Completed => ImageOverlay::completed(img),
+                                        Status::Upcoming => ImageOverlay::upcoming(img),
+                                    };
 
-                                Some((
-                                    manga_id.clone(),overlay
-                                ))
-                            });
+                                    Some((manga_id.clone(), overlay))
+                                },
+                            );
                             let v = stream::iter(reqs)
                                 .buffer_unordered(10)
                                 .collect::<Vec<_>>()
@@ -124,7 +149,7 @@ impl App for HomePage {
 }
 
 impl HomePage {
-    fn show(&mut self, ui: &mut Ui, data: &HomeResponse, imgs: &HashMap<String,ImageOverlay>) {
+    fn show(&mut self, ui: &mut Ui, data: &HomeResponse, imgs: &HashMap<String, ImageOverlay>) {
         show_top_bar(ui, HomePages::Home);
         ScrollArea::vertical().show(ui, |ui| {
             show_row(&data.newest, "Newest", ui, imgs);
