@@ -6,9 +6,7 @@ pub struct UriService {
 
 impl UriService {
     pub fn new(sites: Vec<ExternalSite>) -> Self {
-        Self {
-            sites,
-        }
+        Self { sites }
     }
     pub fn get_uri(&self, url: &str) -> String {
         for site in &self.sites {

@@ -19,6 +19,7 @@ impl ApiError {
             message: Some("couldnt find record".to_string()),
             cause: None,
             err_type: ApiErrorType::InternalError,
-        }.into()
+        }
+        .into()
     }
 }

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use surrealdb::engine::local::Db;
 use surrealdb::sql::Datetime;
 use surrealdb::Surreal;
-use surrealdb_extras::{SurrealTable, ThingType};
+use surrealdb_extras::{SurrealTable, ThingFunc, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("user_progress")]
@@ -28,5 +28,9 @@ pub struct ProgressDBService {
 impl ProgressDBService {
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {
         Self { conn }
+    }
+
+    pub async fn get_progress(&self, user: &str, manga: ThingFunc) -> Option<(String, f64)> {
+        todo!()
     }
 }

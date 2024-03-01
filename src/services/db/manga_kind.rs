@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use crate::services::db::tag::Tag;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
 use surrealdb_extras::{RecordData, SurrealTable, SurrealTableInfo};
-use crate::services::db::tag::Tag;
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug, Clone)]
 #[db("kinds")]
@@ -16,7 +16,6 @@ pub struct MangaKindDBService {
     conn: Arc<Surreal<Db>>,
     temp: Arc<Mutex<HashMap<String, Kind>>>,
 }
-
 
 impl MangaKindDBService {
     pub async fn get_kind(&self, id: &str) -> Option<Kind> {
@@ -34,6 +33,9 @@ impl MangaKindDBService {
     }
 
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {
-        Self { conn, temp: Default::default() }
+        Self {
+            conn,
+            temp: Default::default(),
+        }
     }
 }

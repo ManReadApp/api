@@ -14,7 +14,9 @@ use std::sync::Arc;
 use surrealdb::engine::local::Db;
 use surrealdb::sql::{Datetime, Thing};
 use surrealdb::Surreal;
-use surrealdb_extras::{RecordData, SurrealSelect, SurrealTable, SurrealTableInfo, ThingFunc, ThingType};
+use surrealdb_extras::{
+    RecordData, SurrealSelect, SurrealTable, SurrealTableInfo, ThingFunc, ThingType,
+};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("mangas")]

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::errors::{ApiError, ApiResult};
 use crate::services::db::tag::Tag;
 use api_structure::auth::register::Gender;
@@ -6,6 +5,7 @@ use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use surrealdb::engine::local::Db;
 use surrealdb::opt::PatchOp;
@@ -52,7 +52,7 @@ pub struct UserRolePassword {
 
 pub struct UserDBService {
     pub conn: Arc<Surreal<Db>>,
-    temp: Arc<Mutex<HashMap<String, String>>>
+    temp: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl UserDBService {
@@ -140,7 +140,10 @@ impl UserDBService {
         Ok(Role::from(role))
     }
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {
-        Self { conn, temp: Default::default() }
+        Self {
+            conn,
+            temp: Default::default(),
+        }
     }
 
     pub async fn new_user(

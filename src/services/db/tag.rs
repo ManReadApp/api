@@ -21,7 +21,7 @@ impl Tag {
             description: self.description,
             sex: self.sex,
         }
-    } 
+    }
 }
 
 pub struct TagDBService {

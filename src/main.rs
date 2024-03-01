@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use crate::env::config::Config;
 use crate::services::auth_service::validator;
 use crate::services::crypto_service::CryptoService;
@@ -16,6 +15,7 @@ use crate::services::db::scrape_list::ScrapeListDBService;
 use crate::services::db::tag::TagDBService;
 use crate::services::db::user::UserDBService;
 use crate::services::db::version::VersionDBService;
+use crate::services::uri_service::UriService;
 use crate::util::create_folders;
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
@@ -23,12 +23,12 @@ use actix_web::{web, App, HttpServer, Responder};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use log::info;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
 use tokio::time::sleep;
-use crate::services::uri_service::UriService;
 
 mod env;
 mod errors;
@@ -53,7 +53,10 @@ async fn main() -> std::io::Result<()> {
         ],
     )?;
     #[cfg(feature = "dev")]
-    let _ =  std::os::unix::fs::symlink(std::fs::canonicalize(&config.root_folder).unwrap(), PathBuf::from("../scraper/tests"));
+    let _ = std::os::unix::fs::symlink(
+        std::fs::canonicalize(&config.root_folder).unwrap(),
+        PathBuf::from("../scraper/tests"),
+    );
     env_logger::init_from_env(env_logger::Env::new().default_filter_or(config.rust_log.clone()));
     let db = Arc::new(establish(config.root_folder.clone(), true).await.unwrap());
     log_url(&config);
