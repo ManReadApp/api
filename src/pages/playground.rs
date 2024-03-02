@@ -24,7 +24,13 @@ impl App for PlaygroundPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.label("Playground");
-            get_app_data().change(Page::SignIn, Page::all())
+            get_app_data().change(
+                Page::Reader {
+                    manga_id: "3e42gobkidcqyuo6cfyu".to_string(),
+                    chapter_id: None,
+                },
+                Page::all(),
+            )
         });
     }
 }

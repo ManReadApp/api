@@ -29,7 +29,7 @@ pub struct Fetcher<T: DeserializeOwned = bool> {
 impl<T: DeserializeOwned + Send> Fetcher<T> {
     /// returns true if fetcher is loading
     pub fn loading(&self) -> bool {
-        matches!(self.response, Response::Procressing { .. })
+        self.response.loading()
     }
     /// new
     pub fn new(request: Request) -> Self {
@@ -174,7 +174,7 @@ impl<T: DeserializeOwned + Send> Fetcher<T> {
     pub fn result(&mut self) -> Option<&Complete<T>> {
         if matches!(self.response, Response::None) {
             None
-        } else if matches!(self.response, Response::Procressing { .. }) {
+        } else if self.response.loading() {
             let done = self.process_data();
             if done {
                 self.result()
@@ -197,6 +197,15 @@ enum Response<T> {
         th: ThreadHandler<Result<Vec<u8>, Errors>>,
     },
     Done(Complete<T>),
+}
+
+impl<T> Response<T> {
+    fn loading(&self) -> bool {
+        match self {
+            Response::Procressing { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone)]

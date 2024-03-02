@@ -4,7 +4,8 @@ use crate::pages::auth::sign_in::LoginPage;
 use crate::pages::auth::sign_up::SignUpPage;
 use crate::pages::auth::sign_up_info::SignUpInfoPage;
 use crate::pages::auth::verify_account::VerifyAccountPage;
-use crate::pages::{HomePage, InfoPage, LoadingInitRefreshPage, PlaygroundPage};
+use crate::pages::{HomePage, InfoPage, LoadingInitRefreshPage, MangaReaderPage, PlaygroundPage};
+use api_structure::reader::ReaderPage;
 use eframe::App;
 use std::collections::HashSet;
 
@@ -24,6 +25,10 @@ pub enum Page {
     AddManga,
     You,
     Settings,
+    Reader {
+        manga_id: String,
+        chapter_id: Option<String>,
+    },
 }
 
 impl Page {
@@ -43,6 +48,10 @@ impl Page {
             Self::AddManga,
             Self::You,
             Self::Settings,
+            Self::Reader {
+                manga_id: "".to_string(),
+                chapter_id: None,
+            },
         ]
     }
 }
@@ -63,6 +72,7 @@ pub struct Windows {
     add_manga: Option<()>,
     you: Option<()>,
     settings: Option<()>,
+    reader: Option<MangaReaderPage>,
 }
 
 impl Windows {
@@ -82,6 +92,7 @@ impl Windows {
             Page::AddManga => self.add_manga = None,
             Page::You => self.you = None,
             Page::Settings => self.settings = None,
+            Page::Reader { .. } => self.reader = None,
         };
     }
 
@@ -136,6 +147,13 @@ impl Windows {
             Page::AddManga => todo!(),
             Page::You => todo!(),
             Page::Settings => todo!(),
+            Page::Reader {
+                manga_id,
+                chapter_id,
+            } => self
+                .reader
+                .get_or_insert_with(|| MangaReaderPage::new(manga_id, chapter_id))
+                as &mut dyn App,
         }
     }
 

@@ -54,9 +54,6 @@ impl App for LoadingInitRefreshPage {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(v) = self.data.task.ready() {
-                #[cfg(feature = "dev")]
-                get_app_data().change(Page::Playground, Page::all());
-                #[cfg(not(feature = "dev"))]
                 match v {
                     None => {
                         get_app_data().change(Page::SignIn, Page::all());
@@ -67,6 +64,9 @@ impl App for LoadingInitRefreshPage {
                         let data = get_app_data();
                         *data.spinner.lock().unwrap() = Some(image.clone());
                         data.set_user_data(user.clone());
+                        #[cfg(feature = "dev")]
+                        let page = Page::Playground;
+                        #[cfg(not(feature = "dev"))]
                         let page = if Role::NotVerified == data.get_user_data().unwrap().role {
                             Page::VerifyAccount
                         } else {
