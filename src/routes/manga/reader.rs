@@ -1,3 +1,4 @@
+use crate::env::config::Config;
 use crate::errors::{ApiError, ApiResult};
 use crate::services::db::chapter::ChapterDBService;
 use crate::services::db::chapter_version::ChapterVersionDBService;
@@ -5,10 +6,13 @@ use crate::services::db::manga::MangaDBService;
 use crate::services::db::manga_kind::MangaKindDBService;
 use crate::services::db::page::PageDBService;
 use crate::services::db::progress::ProgressDBService;
+use actix_files::NamedFile;
 use actix_web::post;
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
+use api_structure::error::{ApiErr, ApiErrorType};
+use api_structure::image::{MangaCoverRequest, MangaReaderImageRequest};
 use api_structure::reader::{
     MangaReaderRequest, MangaReaderResponse, Progress, ReaderPage, ReaderPageRequest,
     ReaderPageResponse,
@@ -32,10 +36,12 @@ pub async fn get_pages(
 ) -> ApiResult<Json<ReaderPageResponse>> {
     let mut pages = Vec::new();
     for page in cvs.get(&req.chapter_version_id).await? {
+        let page_id = page.thing.id().to_string();
         let page = page_s.get(page).await?;
         pages.push((
             page.page,
             ReaderPage {
+                page_id,
                 width: page.width,
                 height: page.height,
                 ext: page.ext,
@@ -136,4 +142,39 @@ pub async fn info(
         open_chapter,
         progress,
     }))
+}
+
+#[post("/chapter_page")]
+#[protect(
+    any(
+        "api_structure::auth::role::Role::Admin",
+        "api_structure::auth::role::Role::CoAdmin",
+        "api_structure::auth::role::Role::Moderator",
+        "api_structure::auth::role::Role::Author",
+        "api_structure::auth::role::Role::User"
+    ),
+    ty = "api_structure::auth::role::Role"
+)]
+pub async fn chapter_page_route(
+    Json(data): Json<MangaReaderImageRequest>,
+    config: Data<Config>,
+) -> ApiResult<NamedFile> {
+    if let Some(version_id) = data.version_id.strip_prefix("chapter_versions:") {
+        Ok(NamedFile::open(
+            config
+                .root_folder
+                .join("mangas")
+                .join(data.manga_id)
+                .join(data.chapter_id)
+                .join(version_id)
+                .join(format!("{}.{}", data.page, data.file_ext)),
+        )?)
+    } else {
+        Err(ApiErr {
+            message: Some("invalid version_id_prefix".to_string()),
+            cause: None,
+            err_type: ApiErrorType::InvalidInput,
+        }
+        .into())
+    }
 }

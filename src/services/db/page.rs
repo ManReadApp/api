@@ -4,8 +4,8 @@ use std::sync::Arc;
 use surrealdb::engine::local::Db;
 use surrealdb::key::database::pa::Pa;
 use surrealdb::sql::Datetime;
-use surrealdb::Surreal;
-use surrealdb_extras::{RecordData, SurrealTable, ThingType};
+use surrealdb::{Connection, Error, Surreal};
+use surrealdb_extras::{RecordData, SurrealSelectInfo, SurrealTable, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("manga_pages")]
