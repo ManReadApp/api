@@ -194,7 +194,7 @@ impl From<Translation> for TranslationArea {
             max_x: value.max_x,
             max_y: value.max_y,
             text_color: [0; 3],
-            overlay_color: [255; 3],
+            outline_color: [255; 3],
             background: value.background,
         }
     }
