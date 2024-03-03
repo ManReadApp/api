@@ -2,6 +2,7 @@ mod bcript;
 mod defaults;
 mod image;
 mod io;
+mod json;
 mod scrape;
 mod surreal;
 

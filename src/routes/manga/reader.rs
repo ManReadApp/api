@@ -15,8 +15,12 @@ use api_structure::error::{ApiErr, ApiErrorType};
 use api_structure::image::{MangaCoverRequest, MangaReaderImageRequest};
 use api_structure::reader::{
     MangaReaderRequest, MangaReaderResponse, Progress, ReaderPage, ReaderPageRequest,
-    ReaderPageResponse,
+    ReaderPageResponse, TranslationArea,
 };
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::read_to_string;
 
 #[post("/pages")]
 #[protect(
@@ -177,4 +181,80 @@ pub async fn chapter_page_route(
         }
         .into())
     }
+}
+
+impl From<Translation> for TranslationArea {
+    fn from(value: Translation) -> Self {
+        let mut hm = HashMap::new();
+        hm.insert("eng_ichigo".to_string(), value.translated_text);
+        Self {
+            translated_text: hm,
+            min_x: value.min_x,
+            min_y: value.min_y,
+            max_x: value.max_x,
+            max_y: value.max_y,
+            text_color: [0; 3],
+            overlay_color: [255; 3],
+            background: value.background,
+        }
+    }
+}
+
+#[post("page_translation")]
+#[protect(
+    any(
+        "api_structure::auth::role::Role::Admin",
+        "api_structure::auth::role::Role::CoAdmin",
+        "api_structure::auth::role::Role::Moderator",
+        "api_structure::auth::role::Role::Author",
+        "api_structure::auth::role::Role::User"
+    ),
+    ty = "api_structure::auth::role::Role"
+)]
+async fn translation(
+    Json(data): Json<MangaReaderImageRequest>,
+    config: Data<Config>,
+) -> ApiResult<Json<Vec<TranslationArea>>> {
+    if let Some(version_id) = data.version_id.strip_prefix("chapter_versions:") {
+        let s = read_to_string(File::open(
+            config
+                .root_folder
+                .join("mangas")
+                .join(data.manga_id)
+                .join(data.chapter_id)
+                .join(version_id)
+                .join(format!("{}.json", data.page)),
+        )?)?;
+        let mut v: TranslationResponse = serde_json::from_str(&s)?;
+        Ok(Json(
+            v.images.remove(0).into_iter().map(|v| v.into()).collect(),
+        ))
+    } else {
+        Err(ApiErr {
+            message: Some("invalid version_id_prefix".to_string()),
+            cause: None,
+            err_type: ApiErrorType::InvalidInput,
+        }
+        .into())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct Translation {
+    #[serde(rename = "translatedText")]
+    pub translated_text: String,
+    #[serde(rename = "minX")]
+    pub min_x: u32,
+    #[serde(rename = "minY")]
+    pub min_y: u32,
+    #[serde(rename = "maxX")]
+    pub max_x: u32,
+    #[serde(rename = "maxY")]
+    pub max_y: u32,
+    pub background: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct TranslationResponse {
+    pub images: Vec<Vec<Translation>>,
 }
