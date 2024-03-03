@@ -454,8 +454,8 @@ fn load_image<'a>(
                                         min_y: trans.min_y,
                                         max_x: trans.max_x,
                                         max_y: trans.max_y,
-                                        text_color: Color32::BLACK,
-                                        outline_color: Color32::WHITE,
+                                        text_color: Color32::from_rgb(trans.text_color[0],trans.text_color[1],trans.text_color[2]),
+                                        outline_color: Color32::from_rgb(trans.outline_color[0], trans.outline_color[1], trans.outline_color[2]),
                                         background: Image::from_bytes(
                                             format!(
                                                 "bytes://manga_image_{}_overlay_{}",
