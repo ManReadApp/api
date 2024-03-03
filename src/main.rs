@@ -65,3 +65,14 @@ fn main() {
             .expect("failed to start eframe");
     });
 }
+
+#[cfg(target_arch = "wasm32")]
+fn get_window_dimensions() -> Vec2 {
+    let window = web_sys::window().unwrap();
+    let document = window.document().unwrap();
+    let body = document.body().unwrap();
+    let width = body.client_width() as f32;
+    let height = body.client_height() as f32;
+
+    vec2(width, height)
+}
