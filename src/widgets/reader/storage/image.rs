@@ -1,7 +1,7 @@
 use crate::get_app_data;
 use crate::widgets::reader::overlay::ReaderTranslationArea;
 use api_structure::now_timestamp;
-use egui::{include_image, Image};
+use egui::{include_image, Context, Image};
 use ethread::ThreadHandler;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -47,10 +47,40 @@ impl ImageStorage {
         self.hashmap.insert(
             key,
             ImageStore {
-                last_checked: Default::default(),
+                last_checked: now_timestamp().unwrap(),
                 req: image,
             },
         );
+    }
+
+    pub fn clean(&mut self, ctx: &Context) {
+        if let Some(v) = self.hashmap.values().map(|v| v.last_checked).max() {
+            let mut dispose = vec![];
+            let dispose_timestamp = v - Duration::from_secs(1);
+            for (key, item) in &self.hashmap {
+                if item.last_checked < dispose_timestamp {
+                    dispose.push(key.clone());
+                }
+            }
+            for dispose in dispose {
+                if let Some(v) = self.hashmap.remove(&dispose) {
+                    if let Some(v) = v.req.task.ready() {
+                        if let Some(v) = v {
+                            for image in &v.1 {
+                                if let Some(v) = image.background.source().uri() {
+                                    ctx.forget_image(v);
+                                }
+                            }
+                            if let Some(v) = v.0.source().uri() {
+                                ctx.forget_image(v);
+                            }
+                        }
+                    } else {
+                        v.req.dispose_of_thread()
+                    }
+                }
+            }
+        }
     }
 }
 

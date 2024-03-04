@@ -6,7 +6,7 @@ use crate::widgets::reader::render::display_images;
 use crate::widgets::reader::scroll::set_progress;
 use crate::widgets::reader::settings::{ReadingMode, Settings, ViewArea};
 use crate::widgets::reader::storage::{get_version, Storage};
-use api_structure::reader::{MangaReaderRequest};
+use api_structure::reader::MangaReaderRequest;
 use api_structure::RequestImpl;
 use eframe::{App, Frame};
 use egui::{vec2, Context};
@@ -95,7 +95,8 @@ impl App for MangaReaderPage {
                                     self.settings.view_area.margin_left,
                                     self.settings.view_area.margin_top,
                                 ),
-                            )
+                            );
+                            self.storage.loaded_pages.clean(ctx);
                         } else {
                             if v.no_chapters() {
                                 //TODO: no chapters
