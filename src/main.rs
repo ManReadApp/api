@@ -2,11 +2,9 @@
 
 use crate::app::TemplateApp;
 use crate::data::shared_data::SharedData;
-use egui::{include_image, Image};
-use ethread::ThreadHandler;
+#[cfg(target_arch = "wasm32")]
+use egui::{include_image, vec2, Image, Vec2};
 use std::sync::Arc;
-#[cfg(not(target_arch = "wasm32"))]
-use tokio::runtime::Runtime;
 
 mod app;
 mod data;
@@ -48,11 +46,11 @@ async fn main() -> eframe::Result<()> {
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    unsafe { APP_DATA = Some(Arc::new(SharedData::new())) };
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
-
     let web_options = eframe::WebOptions::default();
+
+    unsafe { APP_DATA = Some(Arc::new(SharedData::new())) };
 
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()

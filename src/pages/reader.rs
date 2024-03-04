@@ -1,6 +1,8 @@
 use crate::fetcher::{Complete, Fetcher};
 use crate::fonts::Fonts;
 use crate::get_app_data;
+#[cfg(target_arch = "wasm32")]
+use crate::get_window_dimensions;
 use api_structure::image::MangaReaderImageRequest;
 use api_structure::reader::{
     Action, MangaReaderRequest, MangaReaderResponse, ReaderChapter, ReaderPage, ReaderPageRequest,
@@ -12,8 +14,8 @@ use base64::Engine;
 use eframe::{App, Frame};
 use egui::text::LayoutJob;
 use egui::{
-    include_image, vec2, Align, Align2, Color32, Context, Direction, FontFamily, FontId, Image,
-    Label, Layout, Rect, TextFormat, Ui, Vec2, WidgetText,
+    include_image, pos2, vec2, Align, Align2, Color32, Context, Direction, FontFamily, FontId,
+    Image, Label, Layout, Rect, TextFormat, Ui, Vec2, WidgetText,
 };
 use ethread::ThreadHandler;
 use image::EncodableLayout;
@@ -97,12 +99,12 @@ impl MangaReaderPage {
             },
             settings: Settings {
                 version_hierachy: vec![],
-                reading_mode: ReadingMode::Double(false),
+                reading_mode: ReadingMode::Strip,
                 prefetch: 3.0,
                 view_area: ViewArea {
-                    margin_top: 20.0,
+                    margin_top: 0.0,
                     margin_right: 0.0,
-                    margin_bottom: 20.0,
+                    margin_bottom: 0.0,
                     margin_left: 0.0,
                 },
             },
@@ -161,7 +163,7 @@ impl App for MangaReaderPage {
                                 self.progress = Some(Progress {
                                     chapter: v.open_chapter.to_string(),
                                     image: 1,
-                                    pixels: 0.0,
+                                    pixels: 50.0,
                                 });
                                 //TODO: create progress
                             }
@@ -454,8 +456,16 @@ fn load_image<'a>(
                                         min_y: trans.min_y,
                                         max_x: trans.max_x,
                                         max_y: trans.max_y,
-                                        text_color: Color32::from_rgb(trans.text_color[0],trans.text_color[1],trans.text_color[2]),
-                                        outline_color: Color32::from_rgb(trans.outline_color[0], trans.outline_color[1], trans.outline_color[2]),
+                                        text_color: Color32::from_rgb(
+                                            trans.text_color[0],
+                                            trans.text_color[1],
+                                            trans.text_color[2],
+                                        ),
+                                        outline_color: Color32::from_rgb(
+                                            trans.outline_color[0],
+                                            trans.outline_color[1],
+                                            trans.outline_color[2],
+                                        ),
                                         background: Image::from_bytes(
                                             format!(
                                                 "bytes://manga_image_{}_overlay_{}",
@@ -572,8 +582,8 @@ fn display_images(
     size: Vec2,
     view_start: Vec2,
 ) {
-    let chapter = progress.chapter.clone();
-    let ch = get_page_resp(v, hierachy, page_data, &chapter, ui.ctx());
+    let mut chapter = progress.chapter.clone();
+    let mut ch = get_page_resp(v.clone(), hierachy, page_data, &chapter, ui.ctx());
     match rm {
         ReadingMode::Single => {
             let (r, img) = get_img_(imgs, ch, progress.image).unwrap();
@@ -610,7 +620,52 @@ fn display_images(
                 render_overlay(&img1.1, start, scale, ui)
             }
         }
-        ReadingMode::Strip => unimplemented!(),
+        ReadingMode::Strip => {
+            let mut page = progress.image;
+            let rp = ReaderPage::new(100, 100);
+            let mut processed: f32 = -progress.pixels;
+            let end: f32 = size.y;
+            loop {
+                let page = match &ch {
+                    State::ReaderPageResponse(v_) => match v_.get_page(page) {
+                        Action::Page(r) => {
+                            let img = get_img(&r.page_id, imgs);
+                            page += 1;
+                            Some((false, r, img))
+                        }
+                        Action::Next => {
+                            let cid = v.get_next_chapter(&chapter).map(|v| v.chapter_id.clone());
+                            match cid {
+                                None => {
+                                    break;
+                                }
+                                Some(v) => chapter = v,
+                            }
+                            ch = get_page_resp(v.clone(), hierachy, page_data, &chapter, ui.ctx());
+                            ui.ctx().request_repaint();
+                            None
+                        }
+                        _ => unreachable!(),
+                    },
+                    State::ChapterLoading => Some((true, &rp, imgs.loading.clone())),
+                    State::ChapterError => Some((true, &rp, imgs.error.clone())),
+                    State::NoChapter => Some((true, &rp, imgs.error.clone())),
+                };
+                if let Some((endd, rp, img)) = page {
+                    let height = rp.height(size.x);
+                    let rect =
+                        Rect::from_min_size(pos2(view_start.x, processed), vec2(size.x, height));
+                    img.0.paint_at(ui, rect);
+                    processed += height;
+                    if processed >= end {
+                        break;
+                    }
+                    if endd {
+                        break;
+                    }
+                }
+            }
+        }
         ReadingMode::Row(_) => unimplemented!(),
     }
 }
