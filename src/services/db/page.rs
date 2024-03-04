@@ -1,11 +1,12 @@
 use crate::errors::{ApiError, ApiResult};
+use image::DynamicImage;
+use img_hash::Hasher;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use surrealdb::engine::local::Db;
-use surrealdb::key::database::pa::Pa;
 use surrealdb::sql::Datetime;
-use surrealdb::{Connection, Error, Surreal};
-use surrealdb_extras::{RecordData, SurrealSelectInfo, SurrealTable, ThingType};
+use surrealdb::Surreal;
+use surrealdb_extras::{RecordData, SurrealTable, ThingType};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
 #[db("manga_pages")]
@@ -15,11 +16,28 @@ pub struct Page {
     pub width: u32,
     pub height: u32,
     pub ext: String,
+    pub hash: String,
     pub translation: bool,
     #[opt(exclude = true)]
     pub updated: Datetime,
     #[opt(exclude = true)]
     pub created: Datetime,
+}
+
+impl Page {
+    pub fn new(img: DynamicImage, ext: &str, page: u32, hasher: &Hasher) -> Self {
+        let hash = Some(hasher.hash_image(&img).to_base64());
+        Self {
+            page,
+            width: img.width(),
+            height: img.height(),
+            ext: ext.to_string(),
+            translation: false,
+            hash,
+            updated: Default::default(),
+            created: Default::default(),
+        }
+    }
 }
 
 pub struct PageDBService {

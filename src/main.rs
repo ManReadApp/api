@@ -149,6 +149,7 @@ async fn main() -> std::io::Result<()> {
 }
 
 async fn test(data: impl Fn() -> Arc<Surreal<Db>>) {
+    let data = data();
     loop {
         sleep(Duration::from_secs(1)).await
     }
