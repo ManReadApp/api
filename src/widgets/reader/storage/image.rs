@@ -21,7 +21,10 @@ impl Default for ImageStorage {
                 get_app_data().spinner.lock().unwrap().clone().unwrap(),
                 vec![],
             )),
-            error: Arc::new((Image::from(include_image!("../../../assets/error.gif")), vec![])),
+            error: Arc::new((
+                Image::from(include_image!("../../../assets/error.gif")),
+                vec![],
+            )),
         }
     }
 }
