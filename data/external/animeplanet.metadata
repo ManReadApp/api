@@ -1,4 +1,4 @@
-"uri": "animeplanet", "kind": "Metadata", "request_config": "headers_err.json"
+"request_config": "headers_err.json"
 tags[@strip_text] .tags ul li a
 img[src] .mainEntry img
 description[text] .synopsisManga

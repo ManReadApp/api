@@ -1,4 +1,4 @@
-"uri": "myanimelist", "kind": "Metadata", "request_config": "headers.json"
+"request_config": "headers.json"
 title[text] .h1-title > span
 description[text] [itemprop="description"]
 labels[@text] .leftside .spaceit_pad .dark_text
