@@ -11,3 +11,8 @@ add_hash.rs
 ```
 add to project and run test
 ```
+
+anime_planet_tag_scraper.js
+```
+copy content into console at `https://www.anime-planet.com/manga/all`
+```
