@@ -26,7 +26,7 @@ pub struct Page {
 
 impl Page {
     pub fn new(img: DynamicImage, ext: &str, page: u32, hasher: &Hasher) -> Self {
-        let hash = Some(hasher.hash_image(&img).to_base64());
+        let hash = hasher.hash_image(&img).to_base64();
         Self {
             page,
             width: img.width(),

@@ -12,10 +12,11 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use surrealdb::engine::local::Db;
-use surrealdb::sql::{Datetime, Thing};
+use surrealdb::sql::Datetime;
 use surrealdb::Surreal;
 use surrealdb_extras::{
-    RecordData, SurrealSelect, SurrealTable, SurrealTableInfo, ThingFunc, ThingType,
+    RecordData, SurrealSelect, SurrealSelectInfo, SurrealTable, SurrealTableInfo, ThingFunc,
+    ThingType,
 };
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
@@ -72,7 +73,7 @@ impl MangaDBService {
     }
 
     pub async fn get(&self, id: &str) -> ApiResult<RecordData<Manga>> {
-        let thing = ThingFunc::from(Thing::from(("mangas", id)));
+        let thing = ThingFunc::from((Manga::name(), id));
         Ok(thing.get(&*self.conn).await?.ok_or(ApiErr {
             message: Some("failed to find record".to_string()),
             cause: None,
@@ -85,19 +86,22 @@ impl MangaDBService {
         search: SearchRequest,
         user_id: &str,
     ) -> ApiResult<Vec<RecordData<Manga>>> {
-        let query = query_builder(search, user_id)?;
-        Ok(Manga::search(&*self.conn, Some(query)).await?)
+        let query = query_builder(search, &Manga::keys().join(","), user_id)?;
+        println!("{}", query);
+        Ok(self.conn.query(query).await?.take(0)?)
     }
 }
 
 enum ItemDataDefined {
     Favorites,
+    Reading,
 }
 
 impl ItemDataDefined {
     fn sql(&self, user_id: &str) -> String {
         match self {
             ItemDataDefined::Favorites => favorites(user_id),
+            ItemDataDefined::Reading => todo!(),
         }
     }
 }
@@ -108,6 +112,8 @@ impl TryFrom<ItemData> for ItemDataDefined {
     fn try_from(value: ItemData) -> Result<Self, Self::Error> {
         if value.name.as_str() == "Favorites" && matches!(value.value, ItemValue::None) {
             return Ok(ItemDataDefined::Favorites);
+        } else if value.name.as_str() == "Reading" && matches!(value.value, ItemValue::None) {
+            return Ok(ItemDataDefined::Reading);
         }
         Err(ApiErr {
             message: Some("Couldnt find ItemData".to_string()),
@@ -139,26 +145,49 @@ fn to_sql(item: ItemOrArray, user_id: &str) -> ApiResult<String> {
     })
 }
 
-fn query_builder(r: SearchRequest, user_id: &str) -> ApiResult<String> {
+fn query_builder(mut r: SearchRequest, fields: &str, user_id: &str) -> ApiResult<String> {
     let asc = if r.desc { "DESC" } else { "ASC" };
     //TODO: list_count
-    let query = to_sql(r.query, user_id)?;
-    let order = format!(
-        "ORDER BY {} {}",
-        match r.order {
-            Order::Id => "created",
-            Order::Alphabetical => "title",
-            Order::Updated => "updated",
-            Order::LastRead => "read_updated",
-            Order::Popularity => "list_count",
-        },
-        asc
-    );
-    let limit = format!("LIMIT {} START {}", r.limit, r.page - 1);
-    if query.is_empty() {
-        Ok(format!("{order} {limit}"))
+
+    let (order, table) = if Order::LastRead != r.order {
+        let order = match r.order {
+            Order::Random => "ORDER BY RAND()".to_string(),
+            _ => format!(
+                "ORDER BY {} {}",
+                match r.order {
+                    Order::Created => "created",
+                    Order::Alphabetical => "title",
+                    Order::Updated => "updated",
+                    Order::LastRead => unreachable!(),
+                    Order::Popularity => "list_count",
+                    Order::Random => unreachable!(),
+                },
+                asc
+            ),
+        };
+        (order, Manga::name().to_string())
     } else {
-        Ok(format!("WHERE {query} {order} {limit}"))
+        // let new_item = ItemOrArray::Item(Item::new(ItemData::enum_("Reading")));
+        // r.query = match r.query {
+        //     ItemOrArray::Item(v) => ItemOrArray::Array(Array {
+        //         or: false,
+        //         items: vec![ItemOrArray::Item(v), new_item],
+        //     }),
+        //     ItemOrArray::Array(mut v) => {
+        //         v.items.push(new_item);
+        //         v.or = false;
+        //         ItemOrArray::Array(v)
+        //     }
+        // };
+        ("".to_string(), reading(user_id))
+    };
+    let query = to_sql(r.query, user_id)?;
+    let limit = format!("LIMIT {} START {}", r.limit, r.page - 1);
+    let base = format!("SELECT {fields} FROM {table}");
+    if query.is_empty() {
+        Ok(format!("{base} {order} {limit}"))
+    } else {
+        Ok(format!("{base} WHERE {query} {order} {limit}"))
     }
 }
 
@@ -178,4 +207,8 @@ fn favorites(user: &str) -> String {
         r#"count(SELECT id FROM scrape_list WHERE scrape_list.name = "Favorites" AND scrape_list.user = {} scrape_list.mangas CONTAINS mangas.id LIMIT 1) = 1"#,
         user
     )
+}
+
+fn reading(user_id: &str) -> String {
+    format!("(SELECT manga FROM (SELECT manga, time::max(updated) as max FROM user_progress WHERE user = {user_id} GROUP BY manga) ORDER BY max DESC)")
 }

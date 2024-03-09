@@ -28,63 +28,43 @@ pub async fn home(
     tags: Data<TagDBService>,
     user: ReqData<Claim>,
 ) -> ApiResult<Json<HomeResponse>> {
-    const LIMIT: u32 = 20;
-    let trending = SearchRequest {
-        order: Order::Popularity,
-        desc: true,
-        limit: LIMIT,
-        page: 1,
-        query: ItemOrArray::Array(Array {
-            or: false,
-            items: vec![],
-        }),
+    let generate = |order, desc, query| {
+        let query = match query {
+            None => ItemOrArray::Array(Array {
+                or: false,
+                items: vec![],
+            }),
+            Some(v) => v,
+        };
+        SearchRequest {
+            order,
+            desc,
+            limit: 20,
+            page: 1,
+            query,
+        }
     };
-    let newest = SearchRequest {
-        order: Order::Id,
-        desc: true,
-        limit: LIMIT,
-        page: 1,
-        query: ItemOrArray::Array(Array {
-            or: false,
-            items: vec![],
-        }),
-    };
-    let reading = SearchRequest {
-        order: Order::LastRead,
-        desc: true,
-        limit: LIMIT,
-        page: 1,
-        query: ItemOrArray::Array(Array {
-            or: false,
-            items: vec![],
-        }),
-    };
-    let favorites = SearchRequest {
-        order: Order::Alphabetical,
-        desc: false,
-        limit: LIMIT,
-        page: 1,
-        query: ItemOrArray::Item(Item {
+    let trending = generate(Order::Popularity, true, None);
+    let newest = generate(Order::Created, true, None);
+    let reading = generate(Order::LastRead, true, None);
+    let favorites = generate(
+        Order::Alphabetical,
+        false,
+        Some(ItemOrArray::Item(Item {
             not: false,
             data: ItemData::enum_("Favorites"),
-        }),
-    };
-    let latest_updates = SearchRequest {
-        order: Order::Updated,
-        desc: true,
-        limit: LIMIT,
-        page: 1,
-        query: ItemOrArray::Array(Array {
-            or: false,
-            items: vec![],
-        }),
-    };
+        })),
+    );
+    let latest_updates = generate(Order::Updated, true, None);
+    let random = generate(Order::Random, false, None);
     Ok(Json(HomeResponse {
         trending: vec![], //format(manga.search(trending, &user.id).await?, &tags).await,
         newest: format(manga.search(newest, &user.id).await?, &tags).await?,
         latest_updates: format(manga.search(latest_updates, &user.id).await?, &tags).await?,
         favorites: vec![], //format(manga.search(favorites, &user.id).await?, &tags).await,
-        reading: vec![],   //format(manga.search(reading, &user.id).await?, &tags).await,
+        reading: vec![],
+        // reading: format(manga.search(reading, &user.id).await?, &tags).await?,
+        random: format(manga.search(random, &user.id).await?, &tags).await?,
     }))
 }
 
