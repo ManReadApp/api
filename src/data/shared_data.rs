@@ -137,7 +137,7 @@ impl SharedData {
                 "ko_ascii".to_string(),
             ],
             search: Arc::new(Mutex::new(SearchRequest {
-                order: Order::Id,
+                order: Order::Created,
                 desc: false,
                 limit: 20,
                 page: 1,

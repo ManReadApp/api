@@ -187,7 +187,10 @@ fn load_image<'a>(
             }
             false
         }
-        Action::Next => true,
+        Action::Next => {
+            //TODO: load
+            true
+        },
     };
     (cont, p)
 }

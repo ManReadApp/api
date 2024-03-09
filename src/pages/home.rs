@@ -56,44 +56,26 @@ impl App for HomePage {
                             ui.add(get_app_data().spinner.lock().unwrap().clone().unwrap());
                         }
                     } else {
-                        let mut items = v
-                            .newest
-                            .iter()
-                            .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
-                            .collect::<Vec<_>>();
-                        items.append(
-                            &mut v
-                                .latest_updates
-                                .iter()
-                                .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
-                                .collect(),
-                        );
-                        items.append(
-                            &mut v
-                                .favorites
-                                .iter()
-                                .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
-                                .collect(),
-                        );
-                        items.append(
-                            &mut v
-                                .trending
-                                .iter()
-                                .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
-                                .collect(),
-                        );
-                        items.append(
-                            &mut v
-                                .reading
-                                .iter()
-                                .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
-                                .collect(),
-                        );
+                        let mut items = vec![];
+                        let download = |urls| {
+                            items.append(
+                                &mut
+                                    urls.iter()
+                                    .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
+                                    .collect());
+                        };
+                        download(&v.latest_updates);
+                        download(&v.reading);
+                        download(&v.random);
+                        download(&v.trending);
+                        download(&v.newest);
+                        download(&v.favorites);
                         let ids = items.into_iter().collect::<HashMap<_, _>>();
                         let req = async {
                             let app = get_app_data();
                             let reqs = ids.into_iter().map(
                                 |(manga_id, (status, ext, number))| async move {
+
                                     let token =
                                         format!("Bearer {}", app.get_access_token().await.unwrap());
                                     let bytes = app
@@ -114,8 +96,8 @@ impl App for HomePage {
                                         format!("cover://{}", manga_id),
                                         bytes.to_vec(),
                                     )
-                                    .sense(Sense::click())
-                                    .fit_to_exact_size(vec2(200., 300.));
+                                        .sense(Sense::click())
+                                        .fit_to_exact_size(vec2(200., 300.));
                                     let overlay = match status {
                                         Status::Dropped => ImageOverlay::dropped(img),
                                         Status::Hiatus => ImageOverlay::hiatus(img),
@@ -157,6 +139,7 @@ impl HomePage {
             show_row(&data.reading, "Reading", ui, imgs);
             show_row(&data.favorites, "Favorites", ui, imgs);
             show_row(&data.latest_updates, "Latest Updates", ui, imgs);
+            show_row(&data.random, "Random", ui, imgs);
         });
     }
 }
@@ -218,7 +201,7 @@ fn render_row(label: &str, ui: &mut Ui) {
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
         if ui.add(Button::new("More").sense(Sense::click())).clicked() {
             let (search, order, desc) = match label {
-                "Newest" => (vec![], Order::Id, true),
+                "Newest" => (vec![], Order::Created, true),
                 "Trending" => {
                     unimplemented!()
                 }
@@ -232,6 +215,7 @@ fn render_row(label: &str, ui: &mut Ui) {
                     false,
                 ),
                 "Latest Updates" => (vec![], Order::Updated, true),
+                "Random" => (vec![], Order::Random, true),
                 _ => unreachable!(),
             };
 
@@ -249,8 +233,6 @@ fn render_row(label: &str, ui: &mut Ui) {
         }
     });
 }
-
-fn item() {}
 
 fn scrollable_items(items: Vec<(String, String, Option<ImageOverlay>)>, ui: &mut Ui, id: &str) {
     ScrollArea::horizontal()
