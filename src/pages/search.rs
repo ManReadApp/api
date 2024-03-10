@@ -127,7 +127,10 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>) {
                                 let img = img.fit_to_exact_size(vec2(size, size * 1.5));
                                 if ui.add(img).clicked() {
                                     if item.internal() {
-                                        get_app_data().open(Page::MangaInfo(item.id_url().clone()))
+                                        get_app_data().open(Page::Reader {
+                                            manga_id: item.id_url().clone(),
+                                            chapter_id: None,
+                                        })
                                     } else {
                                         todo!("display infos in app")
                                     }
