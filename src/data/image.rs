@@ -25,6 +25,15 @@ impl CoverStorage {
         }
     }
 
+    pub fn get_url(&mut self, url: &str) -> Option<ImageOverlay> {
+        if let Some(item) = self.items.get_mut(url) {
+            item.opened = Some(now_timestamp().unwrap());
+            return item.image.task.ready()?.clone();
+        }
+        // TODO: load images from url
+        None
+    }
+
     pub fn get(
         &mut self,
         manga_id: &str,
