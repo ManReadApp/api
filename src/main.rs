@@ -135,7 +135,9 @@ async fn main() -> std::io::Result<()> {
                             .service(routes::manga::reader_info_route) //min User
                             .service(routes::manga::pages_route) //min User
                             .service(routes::manga::chapter_page_route) //min User
-                            .service(routes::manga::translation_route), //min User
+                            .service(routes::manga::translation_route) //min User
+                            .service(routes::manga::external_search) //min User
+                            .service(routes::manga::available_external_search_sites), //min User
                     ),
             );
         app

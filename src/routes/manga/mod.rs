@@ -1,10 +1,13 @@
 mod cover;
+mod external;
 mod home;
 mod info;
 mod reader;
 mod search;
 
 pub use cover::cover_route;
+pub use external::available_external_search_sites;
+pub use external::search as external_search;
 pub use home::home as home_route;
 pub use info::info as info_route;
 pub use reader::chapter_page_route;
