@@ -187,6 +187,23 @@ impl<T: DeserializeOwned + Send> Fetcher<T> {
             unreachable!()
         }
     }
+
+    pub fn take_result(mut self) -> Option<Complete<T>> {
+        if matches!(self.response, Response::None) {
+            None
+        } else if self.response.loading() {
+            let done = self.process_data();
+            if done {
+                self.take_result()
+            } else {
+                None
+            }
+        } else if let Response::Done(v) = self.response {
+            Some(v)
+        } else {
+            unreachable!()
+        }
+    }
 }
 
 enum Response<T> {
