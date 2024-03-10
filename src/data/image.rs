@@ -1,15 +1,15 @@
 use crate::get_app_data;
 use crate::widgets::image_overlay::ImageOverlay;
 use api_structure::image::MangaCoverRequest;
+use api_structure::now_timestamp;
 use api_structure::search::Status;
-use chrono::Duration;
-use eframe::emath::vec2;
 use egui::{Image, Sense};
 use ethread::ThreadHandler;
 use futures_util::{stream, StreamExt};
 use reqwest::header::AUTHORIZATION;
 use std::collections::HashMap;
 use std::future::Future;
+use std::time::Duration;
 
 #[derive(Default)]
 pub struct CoverStorage {
@@ -24,6 +24,28 @@ impl CoverStorage {
             Some(v) => Some(v),
         }
     }
+
+    pub fn get(
+        &mut self,
+        manga_id: &str,
+        status: &Status,
+        ext: &str,
+        number: u32,
+    ) -> Option<ImageOverlay> {
+        if let Some(item) = self.items.get_mut(manga_id) {
+            item.opened = Some(now_timestamp().unwrap());
+            return item.image.task.ready()?.clone();
+        }
+        let new = ThreadHandler::new_async(Self::download_logic(
+            manga_id.to_string(),
+            *status,
+            ext.to_string(),
+        ));
+        self.items
+            .insert(manga_id.to_string(), CoverTimeStamp::new(new));
+        None
+    }
+
     fn new(data: HashMap<String, Option<ImageOverlay>>) -> Self {
         Self {
             items: data
@@ -65,6 +87,19 @@ impl CoverStorage {
         ext: String,
     ) -> impl Future<Output = Option<(String, ImageOverlay)>> + Sized {
         async move {
+            Some((
+                manga_id.clone(),
+                Self::download_logic(manga_id, status, ext).await?,
+            ))
+        }
+    }
+
+    fn download_logic(
+        manga_id: String,
+        status: Status,
+        ext: String,
+    ) -> impl Future<Output = Option<ImageOverlay>> + Sized {
+        async move {
             let app = get_app_data();
             let token = format!("Bearer {}", app.get_access_token().await.unwrap());
             let bytes = app
@@ -82,17 +117,15 @@ impl CoverStorage {
                 .await
                 .ok()?;
             let img = Image::from_bytes(format!("cover://{}", manga_id), bytes.to_vec())
-                .sense(Sense::click())
-                .fit_to_exact_size(vec2(200., 300.));
-            let overlay = match status {
+                .sense(Sense::click());
+
+            Some(match status {
                 Status::Dropped => ImageOverlay::dropped(img),
                 Status::Hiatus => ImageOverlay::hiatus(img),
                 Status::Ongoing => ImageOverlay::ongoing(img),
                 Status::Completed => ImageOverlay::completed(img),
                 Status::Upcoming => ImageOverlay::upcoming(img),
-            };
-
-            Some((manga_id.clone(), overlay))
+            })
         }
     }
 }
@@ -106,6 +139,13 @@ impl CoverTimeStamp {
     fn new_manual(image: ThreadHandler<Option<ImageOverlay>>) -> Self {
         Self {
             opened: None,
+            image,
+        }
+    }
+
+    fn new(image: ThreadHandler<Option<ImageOverlay>>) -> Self {
+        Self {
+            opened: Some(now_timestamp().unwrap()),
             image,
         }
     }

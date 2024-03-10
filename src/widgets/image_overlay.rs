@@ -103,6 +103,11 @@ impl ImageOverlay {
             fixed_banner_len: Some(60.),
         }
     }
+
+    pub fn fit_to_exact_size(mut self, size: Vec2) -> Self {
+        self.image = self.image.fit_to_exact_size(size);
+        self
+    }
 }
 impl Widget for ImageOverlay {
     fn ui(self, ui: &mut Ui) -> Response {

@@ -206,6 +206,7 @@ fn scrollable_items(items: Vec<(String, String)>, ui: &mut Ui, id: &str) {
                         ui.vertical(|ui| {
                             let image = { app.covers.lock().unwrap().get_main(&id).cloned() };
                             if let Some(img) = image {
+                                let img = img.fit_to_exact_size(vec2(200., 300.));
                                 if ui.add(img).clicked() {
                                     get_app_data().open(Page::MangaInfo(id.clone()))
                                 }

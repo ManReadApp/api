@@ -4,8 +4,9 @@ use crate::pages::auth::sign_in::LoginPage;
 use crate::pages::auth::sign_up::SignUpPage;
 use crate::pages::auth::sign_up_info::SignUpInfoPage;
 use crate::pages::auth::verify_account::VerifyAccountPage;
-use crate::pages::{HomePage, InfoPage, LoadingInitRefreshPage, MangaReaderPage, PlaygroundPage};
-use api_structure::reader::ReaderPage;
+use crate::pages::{
+    HomePage, InfoPage, LoadingInitRefreshPage, MangaReaderPage, PlaygroundPage, SearchPage,
+};
 use eframe::App;
 use std::collections::HashSet;
 
@@ -68,7 +69,7 @@ pub struct Windows {
     #[cfg(feature = "dev")]
     playground: Option<PlaygroundPage>,
     manga_info: Option<InfoPage>,
-    search: Option<()>,
+    search: Option<SearchPage>,
     add_manga: Option<()>,
     you: Option<()>,
     settings: Option<()>,
@@ -143,7 +144,7 @@ impl Windows {
             Page::MangaInfo(v) => {
                 self.manga_info.get_or_insert_with(|| InfoPage::new(v)) as &mut dyn App
             }
-            Page::Search => todo!(),
+            Page::Search => self.search.get_or_insert_with(|| SearchPage::new()) as &mut dyn App,
             Page::AddManga => todo!(),
             Page::You => todo!(),
             Page::Settings => todo!(),
