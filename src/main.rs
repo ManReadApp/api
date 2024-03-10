@@ -83,6 +83,8 @@ async fn main() -> std::io::Result<()> {
         let app = App::new().wrap(logger);
         let external =
             UriService::new(manread_scraper::ExternalSite::init(cfgc.root_folder.clone()).unwrap());
+        let (multi, single, search, meta) =
+            manread_scraper::init(cfgc.root_folder.clone()).unwrap();
         #[cfg(all(feature = "cors", not(feature = "cors-permissive")))]
         let app = app.wrap(
             actix_cors::Cors::default()
@@ -113,6 +115,10 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(UserDBService::new(dbc.clone())))
             .app_data(Data::new(VersionDBService::new(dbc.clone())))
             .app_data(Data::new(external))
+            .app_data(Data::new(search))
+            .app_data(Data::new(single))
+            .app_data(Data::new(multi))
+            .app_data(Data::new(meta))
             .service(routes::frontend::frontend_ep)
             .service(routes::frontend::frontend_empty_ep)
             .service(
