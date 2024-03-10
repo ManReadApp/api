@@ -25,6 +25,17 @@ pub struct SearchData<D: DeserializeOwned> {
     fetcher: Fetcher<Vec<D>>,
     init: bool,
     end: bool,
+    require_new: bool
+}
+
+impl<D:DeserializeOwned> SearchData<D> {
+    pub fn set_load(&mut self, need: impl FnOnce()-> bool) {
+        if self.end {
+            self.require_new = false
+        }else {
+            self.require_new = need()
+        }
+    }
 }
 
 impl SearchPage {
@@ -39,6 +50,7 @@ impl SearchPage {
                 fetcher,
                 init: false,
                 end: false,
+                require_new: false,
             },
         }
     }
@@ -72,6 +84,10 @@ impl SearchPage {
                 .fetcher
                 .set_body(&*get_app_data().search.lock().unwrap());
         }
+
+        if self.internal.require_new && !self.internal.fetcher.loading(){
+            self.internal.fetcher.send()
+        }
     }
 }
 
@@ -80,9 +96,10 @@ impl App for SearchPage {
         self.move_data(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.label("Search");
+            let height= ui.available_height();
             let itemsxrow = 5f32;
             let size = (ui.available_width() + ui.spacing().item_spacing.x) / itemsxrow - 10.;
-            ScrollArea::vertical()
+            let v = ScrollArea::vertical()
                 .drag_to_scroll(true)
                 .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
                 .show(ui, |ui| {
@@ -132,6 +149,7 @@ impl App for SearchPage {
                             }
                         });
                 });
+            self.internal.set_load(||(v.content_size.y - v.state.offset.y) < (height * 3.));
         });
     }
 }
