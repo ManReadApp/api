@@ -182,7 +182,7 @@ fn query_builder(mut r: SearchRequest, fields: &str, user_id: &str) -> ApiResult
         ("".to_string(), reading(user_id))
     };
     let query = to_sql(r.query, user_id)?;
-    let limit = format!("LIMIT {} START {}", r.limit, r.page - 1);
+    let limit = format!("LIMIT {} START {}", r.limit, (r.page - 1) * r.limit);
     let base = format!("SELECT {fields} FROM {table}");
     if query.is_empty() {
         Ok(format!("{base} {order} {limit}"))
