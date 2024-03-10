@@ -28,7 +28,7 @@ Files need to have the `.scrape` ext
 
 Example:
 ```
-"uri": "asuratoon", "kind": "Metadata", "request_config": "asuratoon.json"
+"kind": "Metadata", "request_config": "headers.json"
 image[href] div div#test.est2 ... img.cover
 ```
 
