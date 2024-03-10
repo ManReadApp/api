@@ -1,31 +1,30 @@
+use crate::data::image::CoverStorage;
 use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
 use crate::widgets::home_page_swithcer::HomePages;
-use crate::widgets::image_overlay::ImageOverlay;
 use crate::window_storage::Page;
 use api_structure::auth::role::Role;
 use api_structure::home::HomeResponse;
-use api_structure::image::MangaCoverRequest;
 use api_structure::search::{
-    Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse, Status,
+    Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse,
 };
 use api_structure::RequestImpl;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
-use egui::{
-    vec2, Align, Button, Context, Grid, Image, Label, Layout, ScrollArea, Sense, Spinner, Ui,
-};
+use egui::{vec2, Align, Button, Context, Grid, Label, Layout, ScrollArea, Sense, Spinner, Ui};
 use ethread::ThreadHandler;
-use futures_util::{stream, StreamExt};
-use reqwest::header::AUTHORIZATION;
+use futures_util::StreamExt;
+use poll_promise::Promise;
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::mem;
 use std::sync::Arc;
 
 pub struct HomePage {
     data: Fetcher<Arc<HomeResponse>>,
-    img: Option<ThreadHandler<Arc<HashMap<String, ImageOverlay>>>>,
     init: bool,
+    moved: bool,
+    imgs: Option<ThreadHandler<CoverStorage>>,
 }
 
 impl Default for HomePage {
@@ -34,8 +33,9 @@ impl Default for HomePage {
         req.send();
         Self {
             data: req,
-            img: None,
             init: false,
+            moved: false,
+            imgs: None,
         }
     }
 }
@@ -49,20 +49,32 @@ impl App for HomePage {
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(data) = self.data.result().cloned() {
                 if let Complete::Json(v) = data {
-                    if let Some(imgs) = &self.img {
-                        if let Some(imgs) = imgs.task.ready().cloned() {
-                            self.show(ui, &v, &imgs)
+                    if self.moved {
+                        self.show(ui, &v)
+                    } else if let Some(imgs) = &mut self.imgs {
+                        if imgs.task.ready().is_some() {
+                            let mut promise = Promise::new().1;
+                            mem::swap(&mut promise, &mut imgs.task);
+                            let covers = promise.block_and_take();
+                            {
+                                get_app_data().covers.lock().unwrap().append(covers);
+                            }
+                            self.moved = true;
+                            self.show(ui, &v);
                         } else {
                             ui.add(get_app_data().spinner.lock().unwrap().clone().unwrap());
                         }
                     } else {
                         let mut items = vec![];
-                        let download = |urls| {
+                        let mut download = |urls: &Vec<SearchResponse>| {
                             items.append(
-                                &mut
-                                    urls.iter()
-                                    .map(|v| (v.manga_id.clone(), (v.status, v.ext.clone(), v.number)))
-                                    .collect());
+                                &mut urls
+                                    .iter()
+                                    .map(|v| {
+                                        (v.manga_id.clone(), (v.status, v.ext.clone(), v.number))
+                                    })
+                                    .collect(),
+                            );
                         };
                         download(&v.latest_updates);
                         download(&v.reading);
@@ -71,56 +83,7 @@ impl App for HomePage {
                         download(&v.newest);
                         download(&v.favorites);
                         let ids = items.into_iter().collect::<HashMap<_, _>>();
-                        let req = async {
-                            let app = get_app_data();
-                            let reqs = ids.into_iter().map(
-                                |(manga_id, (status, ext, number))| async move {
-
-                                    let token =
-                                        format!("Bearer {}", app.get_access_token().await.unwrap());
-                                    let bytes = app
-                                        .client
-                                        .post(app.url.join("cover").unwrap())
-                                        .header(AUTHORIZATION, token)
-                                        .json(&MangaCoverRequest {
-                                            manga_id: manga_id.clone(),
-                                            file_ext: ext,
-                                        })
-                                        .send()
-                                        .await
-                                        .ok()?
-                                        .bytes()
-                                        .await
-                                        .ok()?;
-                                    let img = Image::from_bytes(
-                                        format!("cover://{}", manga_id),
-                                        bytes.to_vec(),
-                                    )
-                                        .sense(Sense::click())
-                                        .fit_to_exact_size(vec2(200., 300.));
-                                    let overlay = match status {
-                                        Status::Dropped => ImageOverlay::dropped(img),
-                                        Status::Hiatus => ImageOverlay::hiatus(img),
-                                        Status::Ongoing => ImageOverlay::ongoing(img),
-                                        Status::Completed => ImageOverlay::completed(img),
-                                        Status::Upcoming => ImageOverlay::upcoming(img),
-                                    };
-
-                                    Some((manga_id.clone(), overlay))
-                                },
-                            );
-                            let v = stream::iter(reqs)
-                                .buffer_unordered(10)
-                                .collect::<Vec<_>>()
-                                .await
-                                .into_iter()
-                                .flatten()
-                                .collect::<HashMap<_, _>>();
-
-                            Arc::new(v)
-                        };
-
-                        self.img = Some(ThreadHandler::new_async(req))
+                        self.imgs = Some(ThreadHandler::new_async(CoverStorage::download_many(ids)))
                     }
                 } else {
                     data.display_error(ui)
@@ -131,15 +94,15 @@ impl App for HomePage {
 }
 
 impl HomePage {
-    fn show(&mut self, ui: &mut Ui, data: &HomeResponse, imgs: &HashMap<String, ImageOverlay>) {
+    fn show(&mut self, ui: &mut Ui, data: &HomeResponse) {
         show_top_bar(ui, HomePages::Home);
         ScrollArea::vertical().show(ui, |ui| {
-            show_row(&data.newest, "Newest", ui, imgs);
-            show_row(&data.trending, "Trending", ui, imgs);
-            show_row(&data.reading, "Reading", ui, imgs);
-            show_row(&data.favorites, "Favorites", ui, imgs);
-            show_row(&data.latest_updates, "Latest Updates", ui, imgs);
-            show_row(&data.random, "Random", ui, imgs);
+            show_row(&data.newest, "Newest", ui);
+            show_row(&data.trending, "Trending", ui);
+            show_row(&data.reading, "Reading", ui);
+            show_row(&data.favorites, "Favorites", ui);
+            show_row(&data.latest_updates, "Latest Updates", ui);
+            show_row(&data.random, "Random", ui);
         });
     }
 }
@@ -172,20 +135,14 @@ fn show_top_bar(ui: &mut Ui, active: HomePages) {
     });
 }
 
-fn show_row(
-    item: &[SearchResponse],
-    label: &str,
-    ui: &mut Ui,
-    imgs: &HashMap<String, ImageOverlay>,
-) {
+fn show_row(item: &[SearchResponse], label: &str, ui: &mut Ui) {
     let app = get_app_data();
     let v = item
         .iter()
         .map(|v| {
             let id = v.manga_id.clone();
             let title = app.get_title(&v.titles);
-            let img = imgs.get(&id).cloned();
-            (id, title, img)
+            (id, title)
         })
         .collect::<Vec<_>>();
     if !v.is_empty() {
@@ -234,7 +191,8 @@ fn render_row(label: &str, ui: &mut Ui) {
     });
 }
 
-fn scrollable_items(items: Vec<(String, String, Option<ImageOverlay>)>, ui: &mut Ui, id: &str) {
+fn scrollable_items(items: Vec<(String, String)>, ui: &mut Ui, id: &str) {
+    let app = get_app_data();
     ScrollArea::horizontal()
         .auto_shrink([true; 2])
         .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
@@ -244,8 +202,9 @@ fn scrollable_items(items: Vec<(String, String, Option<ImageOverlay>)>, ui: &mut
                 .num_columns(items.len())
                 .spacing([10.0, 10.0])
                 .show(ui, |ui| {
-                    for (id, text, image) in items {
+                    for (id, text) in items {
                         ui.vertical(|ui| {
+                            let image = { app.covers.lock().unwrap().get_main(&id).cloned() };
                             if let Some(img) = image {
                                 if ui.add(img).clicked() {
                                     get_app_data().open(Page::MangaInfo(id.clone()))

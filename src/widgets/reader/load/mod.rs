@@ -190,7 +190,7 @@ fn load_image<'a>(
         Action::Next => {
             //TODO: load
             true
-        },
+        }
     };
     (cont, p)
 }

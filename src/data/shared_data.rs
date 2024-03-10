@@ -1,3 +1,4 @@
+use crate::data::image::CoverStorage;
 use crate::data::user::User;
 use crate::window_storage::Page;
 use api_structure::auth::jwt::Claim;
@@ -23,6 +24,7 @@ pub struct SharedData {
     user: Arc<Mutex<Option<User>>>,
     pub go_back_page: Arc<Mutex<Option<Page>>>,
     pub client: Client,
+    pub covers: Arc<Mutex<CoverStorage>>,
     pub spinner: Arc<Mutex<Option<Image<'static>>>>,
     pub lang_hierarchy: Vec<String>,
     pub search: Arc<Mutex<SearchRequest>>,
@@ -129,6 +131,7 @@ impl SharedData {
             user: Default::default(),
             go_back_page: Arc::new(Mutex::new(None)),
             client: Default::default(),
+            covers: Arc::new(Mutex::new(CoverStorage::default())),
             spinner: Default::default(),
             lang_hierarchy: vec![
                 "eng".to_string(),
