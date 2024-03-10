@@ -143,7 +143,7 @@ fn try_from_str(s: UnparsedItem, fields: &Vec<Field>) -> Result<ItemOrArray, Str
                     None => ("title", it),
                 }
             };
-            if search.starts_with('"') && search.ends_with('"') {
+            if search.starts_with('"') && search.ends_with('"') && search.len() > 1 {
                 search = search
                     .strip_prefix('"')
                     .unwrap()

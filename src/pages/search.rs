@@ -2,19 +2,20 @@ use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
 use crate::widgets::image_overlay::ImageOverlay;
 use crate::window_storage::Page;
-use api_structure::search::{DisplaySearch, SearchRequest, SearchResponse, Status};
+use api_structure::search::{DisplaySearch, Field, ItemKind, SearchRequest, SearchResponse, Status};
 use api_structure::RequestImpl;
 use chrono::Duration;
 use eframe::emath::vec2;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
-use egui::{Context, Grid, Image, Label, OpenUrl, ScrollArea, Sense, Spinner, Ui};
+use egui::{Color32, Context, Grid, Image, Label, OpenUrl, ScrollArea, Sense, Spinner, TextEdit, Ui, Vec2};
 use ethread::ThreadHandler;
-use log::error;
+use log::{error, info};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::mem;
+use crate::util::parser::search_parser;
 
 pub struct SearchPage {
     internal: SearchData<SearchResponse>,
@@ -23,6 +24,7 @@ pub struct SearchPage {
 pub struct SearchData<D: DisplaySearch> {
     searched: Vec<D>,
     fetcher: Fetcher<Vec<D>>,
+    search: String,
     init: bool,
     end: bool,
     require_new: bool,
@@ -48,6 +50,7 @@ impl SearchPage {
             internal: SearchData {
                 searched: vec![],
                 fetcher,
+                search: "".to_string(),
                 init: false,
                 end: false,
                 require_new: false,
@@ -162,7 +165,22 @@ impl App for SearchPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
         self.move_data(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Search");
+            let (parsed, errors) = search_parser(&self.internal.search, false, &vec![Field::new("title".to_string(), vec![String::new(), "t".to_string()], ItemKind::String)]);
+            let color = if !errors.is_empty() {
+                Some(Color32::from_rgb(255,64, 64))
+            }else {
+                None
+            };
+            let mut search_field = TextEdit::singleline(&mut self.internal.search);
+            if let Some(color) = color {
+                search_field = search_field.text_color(color)
+            }
+            let resp = ui.add(search_field.margin(vec2(10.,10.)).hint_text("Advanced Search").desired_width(ui.available_width()));
+            if !errors.is_empty() {
+                resp.on_hover_text(errors.join("\n"));
+            }
+            info!("{:?}", parsed);
+            ui.add_space(10.);
             display_grid(ui, &mut self.internal);
         });
     }
