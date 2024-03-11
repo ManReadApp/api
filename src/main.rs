@@ -15,20 +15,17 @@ use crate::services::db::scrape_list::ScrapeListDBService;
 use crate::services::db::tag::TagDBService;
 use crate::services::db::user::UserDBService;
 use crate::services::db::version::VersionDBService;
+use crate::services::internal::internal_service;
 use crate::services::uri_service::UriService;
 use crate::util::create_folders;
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
-use actix_web::{web, App, HttpServer, Responder};
+use actix_web::{web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use log::info;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "dev")]
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
-use surrealdb::engine::local::Db;
-use surrealdb::Surreal;
-use tokio::time::sleep;
 
 mod env;
 mod errors;
@@ -152,15 +149,8 @@ async fn main() -> std::io::Result<()> {
 
     #[cfg(feature = "https")]
     let hs = hs.bind_openssl(format!("0.0.0.0:{}", config.https_port), ssl_builder)?;
-    let (res, _) = tokio::join!(hs.run(), test(|| { db.clone() }));
+    let (res, _) = tokio::join!(hs.run(), internal_service(|| { db.clone() }));
     res
-}
-
-async fn test(data: impl Fn() -> Arc<Surreal<Db>>) {
-    let data = data();
-    loop {
-        sleep(Duration::from_secs(1)).await
-    }
 }
 
 fn log_url(config: &Config) {

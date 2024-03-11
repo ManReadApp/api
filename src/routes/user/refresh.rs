@@ -1,10 +1,9 @@
-use crate::errors::{ApiError, ApiResult};
+use crate::errors::ApiResult;
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::user::UserDBService;
 use actix_web::post;
 use actix_web::web::{Data, Json, ReqData};
 use api_structure::auth::jwt::{Claim, JWTs};
-use surrealdb_extras::SurrealTableInfo;
 
 #[post("/refresh")]
 async fn refresh_(

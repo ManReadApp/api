@@ -1,5 +1,5 @@
 use crate::env::config::random_string;
-use crate::errors::{ApiError, ApiResult};
+use crate::errors::ApiResult;
 use crate::services::db::user::User;
 use api_structure::auth::role::{Kind, Role};
 use api_structure::error::{ApiErr, ApiErrorType};

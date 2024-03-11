@@ -1,5 +1,5 @@
 use crate::env::config::Config;
-use crate::errors::{ApiError, ApiResult};
+use crate::errors::ApiResult;
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::user::UserDBService;
 use actix_web::post;
@@ -8,7 +8,6 @@ use api_structure::auth::jwt::{Claim, JWTs};
 use api_structure::auth::register::NewUserRequest;
 use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
-use surrealdb_extras::SurrealTableInfo;
 
 #[post("/auth/sign_up")]
 async fn sign_up_route(

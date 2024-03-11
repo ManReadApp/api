@@ -1,10 +1,10 @@
-use crate::errors::{ApiError, ApiResult};
+use crate::errors::ApiResult;
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::user::UserDBService;
 use actix_web::post;
 use actix_web::web::{Data, Json};
 use api_structure::auth::jwt::{Claim, JWTs};
-use api_structure::auth::login::{LoginRequest, LoginWithEmailAndPassword};
+use api_structure::auth::login::LoginRequest;
 use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
 

@@ -1,11 +1,9 @@
-use crate::services::db::tag::Tag;
 use api_structure::now_timestamp;
 use log::debug;
 use std::sync::Arc;
 use std::time::Duration;
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
-use surrealdb_extras::SurrealTableInfo;
 
 static mut RERUN: u128 = 0;
 

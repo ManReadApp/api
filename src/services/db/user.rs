@@ -1,5 +1,4 @@
-use crate::errors::{ApiError, ApiResult};
-use crate::services::db::tag::Tag;
+use crate::errors::ApiResult;
 use api_structure::auth::register::Gender;
 use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
@@ -12,8 +11,7 @@ use surrealdb::opt::PatchOp;
 use surrealdb::sql::{Datetime, Thing};
 use surrealdb::{Error, Surreal};
 use surrealdb_extras::{
-    Record, RecordData, SurrealSelect, SurrealSelectInfo, SurrealTable, SurrealTableInfo,
-    ThingFunc, ThingType,
+    Record, RecordData, SurrealSelect, SurrealTable, SurrealTableInfo, ThingFunc, ThingType,
 };
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug)]
@@ -96,7 +94,7 @@ impl UserDBService {
     pub async fn set_role(&self, id: &str, role: Role) -> ApiResult<()> {
         let v: ThingFunc = ThingFunc::new(Thing::from((User::name(), id)));
         let role = UserRole { role: role as u32 };
-        let v: Option<Record> = v.update(&*self.conn, role).await?;
+        let _: Option<Record> = v.update(&*self.conn, role).await?;
         Ok(())
     }
 

@@ -2,7 +2,7 @@ mod multipart;
 mod save;
 
 use crate::env::config::Config;
-use crate::errors::{ApiError, ApiResult};
+use crate::errors::ApiResult;
 use actix_files::NamedFile;
 use actix_multipart::Multipart;
 use actix_web::post;

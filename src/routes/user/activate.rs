@@ -1,4 +1,4 @@
-use crate::errors::{ApiError, ApiResult};
+use crate::errors::ApiResult;
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::auth_tokens::AuthTokenDBService;
 use crate::services::db::user::UserDBService;

@@ -1,7 +1,6 @@
 use crate::errors::{ApiError, ApiResult};
 use std::fs;
 use std::path::Path;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub fn create_folders(root: &Path, paths: Vec<&str>) -> std::io::Result<()> {
     for path in paths {

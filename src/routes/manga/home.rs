@@ -1,14 +1,14 @@
 use crate::errors::ApiResult;
-use crate::services::db::manga::{Manga, MangaDBService, MangaSearch};
+use crate::services::db::manga::{Manga, MangaDBService};
+use crate::services::db::manga_kind::MangaKindDBService;
 use crate::services::db::tag::TagDBService;
+use crate::services::db::user::UserDBService;
 use actix_web::post;
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
 use api_structure::home::HomeResponse;
-use api_structure::search::{
-    Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse, Status,
-};
+use api_structure::search::{Array, ItemOrArray, Order, SearchRequest, SearchResponse, Status};
 use rand::Rng;
 use surrealdb_extras::RecordData;
 
@@ -27,6 +27,9 @@ pub async fn home(
     manga: Data<MangaDBService>,
     tags: Data<TagDBService>,
     user: ReqData<Claim>,
+    user_service: Data<UserDBService>,
+    kind_service: Data<MangaKindDBService>,
+    tag_service: Data<TagDBService>,
 ) -> ApiResult<Json<HomeResponse>> {
     let generate = |order, desc, query| {
         let query = match query {
@@ -44,27 +47,51 @@ pub async fn home(
             query,
         }
     };
-    let trending = generate(Order::Popularity, true, None);
+    //let trending = generate(Order::Popularity, true, None);
     let newest = generate(Order::Created, true, None);
-    let reading = generate(Order::LastRead, true, None);
-    let favorites = generate(
-        Order::Alphabetical,
-        false,
-        Some(ItemOrArray::Item(Item {
-            not: false,
-            data: ItemData::enum_("Favorites"),
-        })),
-    );
+    //let reading = generate(Order::LastRead, true, None);
+    // let favorites = generate(
+    // Order::Alphabetical,
+    // false,
+    // Some(ItemOrArray::Item(Item {
+    //     not: false,
+    //     data: ItemData::enum_("Favorites"),
+    // })),
+    // );
     let latest_updates = generate(Order::Updated, true, None);
     let random = generate(Order::Random, false, None);
     Ok(Json(HomeResponse {
         trending: vec![], //format(manga.search(trending, &user.id).await?, &tags).await,
-        newest: format(manga.search(newest, &user.id).await?, &tags).await?,
-        latest_updates: format(manga.search(latest_updates, &user.id).await?, &tags).await?,
-        favorites: vec![], //format(manga.search(favorites, &user.id).await?, &tags).await,
+        newest: format(
+            manga
+                .search(newest, &user.id, &user_service, &kind_service, &tag_service)
+                .await?,
+            &tags,
+        )
+        .await?,
+        latest_updates: format(
+            manga
+                .search(
+                    latest_updates,
+                    &user.id,
+                    &user_service,
+                    &kind_service,
+                    &tag_service,
+                )
+                .await?,
+            &tags,
+        )
+        .await?,
+        favorites: vec![], //format(manga.search(favorites, &user.id).await?, &tags,  &user_service, &kind_service, &tag_service).await,
         reading: vec![],
-        // reading: format(manga.search(reading, &user.id).await?, &tags).await?,
-        random: format(manga.search(random, &user.id).await?, &tags).await?,
+        // reading: format(manga.search(reading, &user.id).await?, &tags,  &user_service, &kind_service, &tag_service).await?,
+        random: format(
+            manga
+                .search(random, &user.id, &user_service, &kind_service, &tag_service)
+                .await?,
+            &tags,
+        )
+        .await?,
     }))
 }
 

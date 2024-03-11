@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-surrealdb = { version = "1.2.0", features = ["kv-speedb"] }
+surrealdb = { version = "1.2", default-features = false,features = ["kv-speedb", "scripting"] }
 surrealdb-extras = "0.2.0"
 serde = { version = "1.0.196", features = ["derive"] }
 log = { version = "0.4", features = ["std"] }
@@ -17,6 +17,7 @@ manread_scraper = { path = "../scraper" }
 regex = "1.10.3"
 serde_json = "1.0.114"
 img_hash = { git = "https://github.com/theduke/img_hash", branch = "upgrade-image-0.24" }
+async-recursion = "1.0.5"
 
 # main.rs
 env_logger = "0.11"

@@ -12,7 +12,7 @@ use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
 use api_structure::error::{ApiErr, ApiErrorType};
-use api_structure::image::{MangaCoverRequest, MangaReaderImageRequest};
+use api_structure::image::MangaReaderImageRequest;
 use api_structure::reader::{
     MangaReaderRequest, MangaReaderResponse, Progress, ReaderPage, ReaderPageRequest,
     ReaderPageResponse, TranslationArea,
