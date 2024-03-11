@@ -1,9 +1,10 @@
+use crate::errors::ApiResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
-use surrealdb_extras::{RecordData, SurrealTable, SurrealTableInfo};
+use surrealdb_extras::{RecordData, SurrealTable, SurrealTableInfo, ThingArray};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug, Clone)]
 #[db("tags")]
@@ -30,6 +31,9 @@ pub struct TagDBService {
 }
 
 impl TagDBService {
+    pub async fn get_ids(&self, sex: &Option<u32>, value: &str) -> ApiResult<ThingArray> {
+        todo!()
+    }
     pub async fn get_tag(&self, id: &str) -> Option<Tag> {
         if let Some(v) = self.temp.lock().unwrap().get(id) {
             return Some(v.clone());

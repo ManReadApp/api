@@ -40,7 +40,7 @@ pub async fn write_file(
     let image = ImageReader::with_format(Cursor::new(data.clone()), content_type).decode()?;
 
     // converts the image types
-    let allowed = vec![ImageFormat::Gif, ImageFormat::Jpeg, ImageFormat::Qoi];
+    let allowed = [ImageFormat::Gif, ImageFormat::Jpeg, ImageFormat::Qoi];
     if !allowed.contains(&content_type) {
         let mut cursor = Cursor::new(Vec::new());
         let new_format = if content_type == ImageFormat::Png {

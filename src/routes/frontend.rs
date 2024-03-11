@@ -56,6 +56,6 @@ async fn frontend_(
             .content_type("text/html")
             .body(format!("{header}\n{html}")))
     } else {
-        Ok(NamedFile::open(path)?.into_response(&req))
+        Ok(NamedFile::open(path)?.into_response(req))
     }
 }

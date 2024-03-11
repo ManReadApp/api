@@ -65,7 +65,7 @@ pub async fn get_pages(
         max_width += page.width;
         max_height += page.height;
     }
-    pages.sort_by(|(a, _), (b, _)| a.cmp(&b));
+    pages.sort_by(|(a, _), (b, _)| a.cmp(b));
     let mut width = 0;
     let mut height = 0;
     let max_width = max_width as f64;

@@ -7,7 +7,7 @@ use crate::services::db::version::Version;
 use actix_web::web::Data;
 use api_structure::error::{ApiErr, ApiErrorType};
 use api_structure::search::{ItemData, ItemOrArray, ItemValue, Order, SearchRequest};
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -172,7 +172,7 @@ impl ItemDataDefined {
             ItemDataDefined::Uploaded(ItemValue::CmpInt { bigger, eq, value }) => Ok(format!(
                 "created {} {}",
                 display_eq(*bigger, *eq, not),
-                DateTime::from_timestamp_millis(*value).unwrap().to_string()
+                DateTime::<Utc>::from_timestamp_millis(*value).unwrap_or(DateTime::<Utc>::MIN_UTC)
             )),
             ItemDataDefined::Kind(v) => {
                 Ok(format!("kind {}= {}", not2, kind_service.get_id(v).await?))
@@ -214,7 +214,8 @@ impl TryFrom<ItemData> for ItemDataDefined {
     type Error = ApiError;
 
     fn try_from(value: ItemData) -> Result<Self, Self::Error> {
-        let key = value.name.to_lowercase().as_str();
+        let key = value.name.to_lowercase();
+        let key = key.as_str();
         if key == "favorites" && matches!(value.value, ItemValue::None) {
             return Ok(ItemDataDefined::Favorites);
         } else if key == "reading" && matches!(value.value, ItemValue::None) {
@@ -378,14 +379,14 @@ async fn query_builder(
 // return "No title";
 // }
 
-fn last_read() {
+fn last_read() -> &'static str {
     //f32, datetime
-    "SELECT progress, updated as read_updated FROM user_progress WHERE user_progress.user = {} AND user_progress.manga = mangas.id ORDER BY user_progress.updated DESC LIMIT 1";
+    "SELECT progress, updated as read_updated FROM user_progress WHERE user_progress.user = {} AND user_progress.manga = mangas.id ORDER BY user_progress.updated DESC LIMIT 1"
 }
 
-fn popularity() {
+fn popularity() -> &'static str {
     // number => list_count
-    "count(SELECT id FROM user_progress WHERE user_progress.manga = mangas.id)";
+    "count(SELECT id FROM user_progress WHERE user_progress.manga = mangas.id)"
 }
 
 fn reading(user_id: &str) -> String {

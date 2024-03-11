@@ -43,8 +43,7 @@ impl ProgressDBService {
             &*self.conn,
             Some(format!(
                 "WHERE user = users:{} AND manga = {} ORDER BY updated DESC LIMIT 1",
-                user,
-                manga.to_string()
+                user, manga
             )),
         )
         .await

@@ -56,9 +56,7 @@ async fn reset_password(
     user.set_password(id.as_str(), hash).await?;
 
     Ok(Json(JWTs {
-        access_token: crypto
-            .encode_claim(&Claim::new_access(id.clone(), Role::from(kind.kind))?)?,
-        refresh_token: crypto
-            .encode_claim(&Claim::new_refresh(id.clone(), Role::from(kind.kind))?)?,
+        access_token: crypto.encode_claim(&Claim::new_access(id.clone(), kind.kind)?)?,
+        refresh_token: crypto.encode_claim(&Claim::new_refresh(id.clone(), kind.kind)?)?,
     }))
 }

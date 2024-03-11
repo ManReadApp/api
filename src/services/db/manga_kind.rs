@@ -1,9 +1,10 @@
+use crate::errors::ApiResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
-use surrealdb_extras::{RecordData, SurrealTable, SurrealTableInfo};
+use surrealdb_extras::{RecordData, SurrealTable, SurrealTableInfo, ThingFunc};
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug, Clone)]
 #[db("kinds")]
@@ -17,6 +18,9 @@ pub struct MangaKindDBService {
 }
 
 impl MangaKindDBService {
+    pub async fn get_id(&self, kind: &str) -> ApiResult<ThingFunc> {
+        todo!()
+    }
     pub async fn get_kind(&self, id: &str) -> Option<Kind> {
         if let Some(v) = self.temp.lock().unwrap().get(id) {
             return Some(v.clone());

@@ -41,11 +41,7 @@ async fn activate(
     user.set_role(claim.id.as_str(), kind.kind).await?;
 
     Ok(Json(JWTs {
-        access_token: crypto
-            .encode_claim(&Claim::new_access(claim.id.clone(), Role::from(kind.kind))?)?,
-        refresh_token: crypto.encode_claim(&Claim::new_refresh(
-            claim.id.clone(),
-            Role::from(kind.kind),
-        )?)?,
+        access_token: crypto.encode_claim(&Claim::new_access(claim.id.clone(), kind.kind)?)?,
+        refresh_token: crypto.encode_claim(&Claim::new_refresh(claim.id.clone(), kind.kind)?)?,
     }))
 }
