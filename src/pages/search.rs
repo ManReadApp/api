@@ -6,13 +6,14 @@ use crate::window_storage::Page;
 use api_structure::search::{
     DisplaySearch, Field, ItemKind, ItemOrArray, SearchRequest, SearchResponse, Status,
 };
-use api_structure::RequestImpl;
+use api_structure::{Request, RequestImpl, SearchUris};
 use chrono::Duration;
 use eframe::emath::vec2;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{
-    Color32, Context, Grid, Image, Label, OpenUrl, ScrollArea, Sense, Spinner, TextEdit, Ui, Vec2,
+    Color32, ComboBox, Context, Grid, Image, Label, OpenUrl, ScrollArea, Sense, Spinner, TextEdit,
+    Ui, Vec2,
 };
 use ethread::ThreadHandler;
 use log::{error, info};
@@ -25,6 +26,8 @@ use std::sync::MutexGuard;
 pub struct SearchPage {
     internal: SearchData<SearchResponse>,
     reset_scroll: bool,
+    selected_search: String,
+    searches: Fetcher<Vec<String>>,
 }
 
 pub struct SearchData<D: DisplaySearch> {
@@ -34,6 +37,7 @@ pub struct SearchData<D: DisplaySearch> {
     init: bool,
     end: bool,
     require_new: bool,
+    reload: bool,
 }
 
 impl<D: DisplaySearch> SearchData<D> {
@@ -61,6 +65,8 @@ impl SearchPage {
                 .unwrap()
                 .to_string();
         }
+        let mut searches = Fetcher::new(SearchUris::request(&get_app_data().url).unwrap());
+        searches.send();
         Self {
             internal: SearchData {
                 searched: vec![],
@@ -69,15 +75,19 @@ impl SearchPage {
                 init: false,
                 end: false,
                 require_new: false,
+                reload: false,
             },
             reset_scroll: false,
+            selected_search: "internal".to_string(),
+            searches,
         }
     }
 
     fn move_data(&mut self, ctx: &Context) {
         if !self.internal.init {
             self.internal.init = true;
-            self.internal.fetcher.set_ctx(ctx.clone())
+            self.internal.fetcher.set_ctx(ctx.clone());
+            self.searches.set_ctx(ctx.clone());
         }
         if self.internal.fetcher.result().is_some() {
             let mut new = Fetcher::new_ctx(
@@ -94,6 +104,9 @@ impl SearchPage {
                     if v.is_empty() {
                         self.internal.end = true
                     } else {
+                        if self.internal.reload {
+                            self.internal.searched = vec![];
+                        }
                         self.internal.searched.append(&mut v);
                         get_app_data().search.lock().unwrap().page += 1;
                     }
@@ -206,15 +219,44 @@ impl App for SearchPage {
             if let Some(color) = color {
                 search_field = search_field.text_color(color)
             }
-            let resp = ui.add(
-                search_field
-                    .margin(vec2(10., 10.))
-                    .hint_text("Advanced Search")
-                    .desired_width(ui.available_width()),
-            );
-            if !errors.is_empty() {
-                resp.on_hover_text(errors.join("\n"));
-            }
+            ui.horizontal(|ui| {
+                let resp = ui.add(
+                    search_field
+                        .margin(vec2(10., 10.))
+                        .hint_text("Advanced Search")
+                        .desired_width(ui.available_width() - 140.),
+                );
+                ui.add_enabled_ui(self.searches.result().is_some(), |ui| {
+                    let padding = ui.style().spacing.button_padding;
+                    //ui.style_mut().spacing.button_padding = vec2(5.0, 10.0);
+                    ComboBox::new("search_selector", "")
+                        .wrap(true)
+                        .selected_text(display_label(&self.selected_search))
+                        .show_ui(ui, |ui| {
+                            let items = match self.searches.result() {
+                                None => vec![],
+                                Some(v) => match v {
+                                    Complete::Json(v) => v.clone(),
+                                    _ => vec!["error".to_string()],
+                                },
+                            };
+                            ui.selectable_value(
+                                &mut self.selected_search,
+                                "internal".to_string(),
+                                "Internal",
+                            );
+                            for item in items {
+                                let label = display_label(&item);
+                                ui.selectable_value(&mut self.selected_search, item, label);
+                            }
+                        });
+                    ui.style_mut().spacing.button_padding = padding;
+                });
+                if !errors.is_empty() {
+                    resp.on_hover_text(errors.join("\n"));
+                }
+            });
+
             let item = ItemOrArray::Array(parsed);
             {
                 let mut stored = get_app_data().search.lock().unwrap();
@@ -223,7 +265,7 @@ impl App for SearchPage {
                     stored.query = item;
                     stored.page = 1;
                     self.reset_scroll = true;
-                    self.internal.searched = vec![];
+                    self.internal.reload = true;
                     reset(&mut self.internal.fetcher, stored);
                 }
             }
@@ -237,4 +279,16 @@ impl App for SearchPage {
 fn reset(fetcher: &mut Fetcher<Vec<SearchResponse>>, data: MutexGuard<SearchRequest>) {
     fetcher.set_body(&*data);
     fetcher.send();
+}
+
+fn display_label(s: &str) -> String {
+    let s = s.replace("-", " ");
+    if !s.is_empty() {
+        s.split(" ")
+            .map(|s| format!("{}{}", &s[0..1].to_uppercase(), &s[1..]))
+            .collect::<Vec<_>>()
+            .join(" ")
+    } else {
+        s
+    }
 }
