@@ -144,11 +144,11 @@ impl ItemDataDefined {
             )),
             ItemDataDefined::Reading => todo!(),
             ItemDataDefined::Title(title) => Ok(format!(
-                r#"fn::ilike_array(array::flatten(object::values(titles)), string::lowercase("{title}")) {not2}= true"#
+                "array::ilike(array::flatten(object::values(titles)), \"{title}\") {not2}= true"
             )),
-            ItemDataDefined::Source(source) => Ok(format!(
-                r#"fn::ilike_array(sources, string::lowercase("{source}")) {not2}= true"#
-            )),
+            ItemDataDefined::Source(source) => {
+                Ok(format!("array::ilike(sources, \"{source}\") {not2}= true",))
+            }
             ItemDataDefined::Artist(user) => Ok(format!(
                 "{} {}IN artists",
                 user_service.get_id(user, false).await?,
@@ -347,16 +347,6 @@ async fn query_builder(
     }
 }
 
-// DEFINE FUNCTION fn::ilike_array($haystack: array<string>, $needle: string) {
-//     FOR $haystack2 IN $haystack {
-//       IF string::contains(string::lowercase($haystack2), $needle) THEN
-//         RETURN TRUE;
-//       END
-//     };
-//     RETURN FALSE;
-// };
-//
-// // LIMIT 2;
 //
 // DEFINE FUNCTION fn::get_name($priority: array<string>, $map: object) {
 //   FOR $prio IN $priority {

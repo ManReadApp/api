@@ -26,6 +26,8 @@ use log::info;
 #[cfg(feature = "dev")]
 use std::path::PathBuf;
 use std::sync::Arc;
+use surrealdb::engine::local::Db;
+use surrealdb::Surreal;
 
 mod env;
 mod errors;
@@ -149,9 +151,12 @@ async fn main() -> std::io::Result<()> {
 
     #[cfg(feature = "https")]
     let hs = hs.bind_openssl(format!("0.0.0.0:{}", config.https_port), ssl_builder)?;
-    let (res, _) = tokio::join!(hs.run(), internal_service(|| { db.clone() }));
+    let (res, _) = tokio::join!(hs.run(), test(|| { db.clone() }));
     res
 }
+
+//TODO: wtf
+async fn test(db: impl Fn() -> Arc<Surreal<Db>>) {}
 
 fn log_url(config: &Config) {
     #[cfg(feature = "log-ip")]
