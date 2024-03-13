@@ -69,60 +69,69 @@ impl<T: DeserializeOwned + Send> Fetcher<T> {
 
         let context = self.context.clone();
         let auth = self.request.auth;
-        let th: ThreadHandler<Result<Vec<u8>, Errors>> = ThreadHandler::new_async(async move {
-            let request = if auth {
-                add_auth(request).await
-            } else {
-                request
-            };
-            let resp = request.send().await.map_err(|e| {
-                Errors::ClientErr(ClientError {
-                    message: e.to_string(),
-                    cause: None,
-                    data: None,
-                })
-            })?;
-            let bytes = false;
-            if bytes {
-                let mut stream = resp.bytes_stream();
-                while let Some(item) = stream.next().await {
-                    let item: Vec<u8> = item
-                        .map_err(|e| {
-                            Errors::ClientErr(ClientError {
-                                message: "Failed to get chunk".to_string(),
-                                cause: Some(e.to_string()),
-                                data: None,
-                            })
-                        })
-                        .map(|v| v.to_vec())?;
-                    sharedc.lock().push_back(item);
-                }
-                context.lock().as_ref().unwrap().request_repaint();
-                Ok(vec![])
-            } else {
-                let suc = resp.status().is_success();
-                let byts = resp.bytes().await.map_err(|e| {
+        let v = self.context.as_ref().lock().clone();
+        let ctx = match &v {
+            None => None,
+            Some(v) => Some(v),
+        };
+        let th: ThreadHandler<Result<Vec<u8>, Errors>> = ThreadHandler::new_async_ctx(
+            async move {
+                let request = if auth {
+                    add_auth(request).await
+                } else {
+                    request
+                };
+                let resp = request.send().await.map_err(|e| {
                     Errors::ClientErr(ClientError {
                         message: e.to_string(),
                         cause: None,
                         data: None,
                     })
                 })?;
-                if suc {
+                let bytes = false;
+                if bytes {
+                    let mut stream = resp.bytes_stream();
+                    while let Some(item) = stream.next().await {
+                        let item: Vec<u8> = item
+                            .map_err(|e| {
+                                Errors::ClientErr(ClientError {
+                                    message: "Failed to get chunk".to_string(),
+                                    cause: Some(e.to_string()),
+                                    data: None,
+                                })
+                            })
+                            .map(|v| v.to_vec())?;
+                        sharedc.lock().push_back(item);
+                    }
                     context.lock().as_ref().unwrap().request_repaint();
-                    Ok(byts.to_vec())
+                    Ok(vec![])
                 } else {
-                    let err = serde_json::from_slice::<ApiErr>(&byts)
-                        .ok()
-                        .unwrap_or_else(|| ApiErr {
-                            message: String::from_utf8(byts.to_vec()).ok(),
+                    let suc = resp.status().is_success();
+                    let byts = resp.bytes().await.map_err(|e| {
+                        Errors::ClientErr(ClientError {
+                            message: e.to_string(),
                             cause: None,
-                            err_type: ApiErrorType::InternalError,
-                        });
-                    Err(Errors::ApiErr(err))
+                            data: None,
+                        })
+                    })?;
+                    if suc {
+                        context.lock().as_ref().unwrap().request_repaint();
+                        Ok(byts.to_vec())
+                    } else {
+                        let err =
+                            serde_json::from_slice::<ApiErr>(&byts)
+                                .ok()
+                                .unwrap_or_else(|| ApiErr {
+                                    message: String::from_utf8(byts.to_vec()).ok(),
+                                    cause: None,
+                                    err_type: ApiErrorType::InternalError,
+                                });
+                        Err(Errors::ApiErr(err))
+                    }
                 }
-            }
-        });
+            },
+            ctx,
+        );
         self.response = Response::Procressing {
             processed: vec![],
             shared,

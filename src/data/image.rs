@@ -3,7 +3,7 @@ use crate::widgets::image_overlay::ImageOverlay;
 use api_structure::image::MangaCoverRequest;
 use api_structure::now_timestamp;
 use api_structure::search::Status;
-use egui::{Image, Sense};
+use egui::{Context, Image, Sense};
 use ethread::ThreadHandler;
 use futures_util::{stream, StreamExt};
 use reqwest::header::AUTHORIZATION;
@@ -40,16 +40,16 @@ impl CoverStorage {
         status: &Status,
         ext: &str,
         number: u32,
+        ctx: &Context,
     ) -> Option<ImageOverlay> {
         if let Some(item) = self.items.get_mut(manga_id) {
             item.opened = Some(now_timestamp().unwrap());
             return item.image.task.ready()?.clone();
         }
-        let new = ThreadHandler::new_async(Self::download_logic(
-            manga_id.to_string(),
-            *status,
-            ext.to_string(),
-        ));
+        let new = ThreadHandler::new_async_ctx(
+            Self::download_logic(manga_id.to_string(), *status, ext.to_string()),
+            Some(ctx),
+        );
         self.items
             .insert(manga_id.to_string(), CoverTimeStamp::new(new));
         None

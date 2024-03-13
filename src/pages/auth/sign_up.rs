@@ -103,8 +103,10 @@ impl SignUpPage {
         let btn = submit_button::render(ui, loading, email && password && username && !loading);
         if btn.clicked() {
             let username = self.username.clone();
-            let ctx = ctx.clone();
-            self.thumb = Some(ThreadHandler::new_async(upload(username, ctx)));
+            self.thumb = Some(ThreadHandler::new_async_ctx(
+                upload(username, ctx.clone()),
+                Some(&ctx),
+            ));
         }
         ui.add_space(8.0);
     }
@@ -124,7 +126,7 @@ impl SignUpPage {
 }
 
 async fn upload(username: String, ctx: Context) -> (Option<Vec<(String, String)>>, Image<'static>) {
-    let identicon_conways_glider = Identicon::new(username);
+    let identicon_conways_glider = Identicon::new(&username);
     let image = identicon_conways_glider.generate_image().unwrap();
     let mut res = Cursor::new(vec![]);
     image

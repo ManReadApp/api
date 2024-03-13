@@ -109,7 +109,7 @@ impl SignUpInfoPage {
             let v = binding.first()?;
             Some((v.1.clone(), img))
         };
-        self.image_upload = Some(ThreadHandler::new_async(future).task);
+        self.image_upload = Some(ThreadHandler::new_async_ctx(future, Some(ui.ctx())).task);
     }
     fn header(&mut self, ui: &mut Ui) {
         if let Some(v) = self.create_user.result() {

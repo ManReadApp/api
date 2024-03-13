@@ -46,10 +46,28 @@ pub fn load_images(
     // let mut after_reader_page = None;
 
     match rm {
-        ReadingMode::Single => single(&v, hierachy, chapter, area, progress, &reader_page, 1, imgs),
-        ReadingMode::Double(_) => {
-            single(&v, hierachy, chapter, area, progress, &reader_page, 2, imgs)
-        }
+        ReadingMode::Single => single(
+            &v,
+            hierachy,
+            chapter,
+            area,
+            progress,
+            &reader_page,
+            1,
+            imgs,
+            ctx,
+        ),
+        ReadingMode::Double(_) => single(
+            &v,
+            hierachy,
+            chapter,
+            area,
+            progress,
+            &reader_page,
+            2,
+            imgs,
+            ctx,
+        ),
         ReadingMode::Strip => multi(
             &v,
             hierachy,
@@ -61,6 +79,7 @@ pub fn load_images(
             size.y,
             true,
             imgs,
+            ctx,
         ),
         ReadingMode::Row(_) => multi(
             &v,
@@ -73,6 +92,7 @@ pub fn load_images(
             size.x,
             false,
             imgs,
+            ctx,
         ),
     }
 }
@@ -85,6 +105,7 @@ fn load_image<'a>(
     imgs: &mut ImageStorage,
     rp: &'a Arc<ReaderPageResponse>,
     offset: u32,
+    ctx: &Context,
 ) -> (bool, Action<'a>) {
     let p = rp.get_page(progress.image + offset);
     let cont = match &p {
@@ -108,80 +129,88 @@ fn load_image<'a>(
 
                     imgs.insert(
                         page_id.clone(),
-                        ThreadHandler::new_async(async move {
-                            let token = format!(
-                                "Bearer {}",
-                                get_app_data().get_access_token().await.unwrap()
-                            );
-                            let mut translations = vec![];
-                            if fetch_trans {
-                                let mut t: Vec<TranslationArea> = serde_json::from_slice(
-                                    get_app_data()
-                                        .client
-                                        .post(get_app_data().url.join("page_translation").unwrap())
-                                        .header(AUTHORIZATION, &token)
-                                        .json(&data)
-                                        .send()
-                                        .await
-                                        .ok()?
-                                        .bytes()
-                                        .await
-                                        .ok()?
-                                        .as_bytes(),
-                                )
-                                .ok()?;
-                                for (index, trans) in t.into_iter().enumerate() {
-                                    let back = trans
-                                        .background
-                                        .split_once(";base64,")
-                                        .map(|v| v.1.to_string())
-                                        .unwrap_or_else(|| trans.background);
-                                    translations.push(ReaderTranslationArea {
-                                        translated_text: trans.translated_text,
-                                        min_x: trans.min_x,
-                                        min_y: trans.min_y,
-                                        max_x: trans.max_x,
-                                        max_y: trans.max_y,
-                                        text_color: Color32::from_rgb(
-                                            trans.text_color[0],
-                                            trans.text_color[1],
-                                            trans.text_color[2],
-                                        ),
-                                        outline_color: Color32::from_rgb(
-                                            trans.outline_color[0],
-                                            trans.outline_color[1],
-                                            trans.outline_color[2],
-                                        ),
-                                        background: Image::from_bytes(
-                                            format!(
-                                                "bytes://manga_image_{}_overlay_{}",
-                                                page_id, index
+                        ThreadHandler::new_async_ctx(
+                            async move {
+                                let token = format!(
+                                    "Bearer {}",
+                                    get_app_data().get_access_token().await.unwrap()
+                                );
+                                let mut translations = vec![];
+                                if fetch_trans {
+                                    let mut t: Vec<TranslationArea> = serde_json::from_slice(
+                                        get_app_data()
+                                            .client
+                                            .post(
+                                                get_app_data()
+                                                    .url
+                                                    .join("page_translation")
+                                                    .unwrap(),
+                                            )
+                                            .header(AUTHORIZATION, &token)
+                                            .json(&data)
+                                            .send()
+                                            .await
+                                            .ok()?
+                                            .bytes()
+                                            .await
+                                            .ok()?
+                                            .as_bytes(),
+                                    )
+                                    .ok()?;
+                                    for (index, trans) in t.into_iter().enumerate() {
+                                        let back = trans
+                                            .background
+                                            .split_once(";base64,")
+                                            .map(|v| v.1.to_string())
+                                            .unwrap_or_else(|| trans.background);
+                                        translations.push(ReaderTranslationArea {
+                                            translated_text: trans.translated_text,
+                                            min_x: trans.min_x,
+                                            min_y: trans.min_y,
+                                            max_x: trans.max_x,
+                                            max_y: trans.max_y,
+                                            text_color: Color32::from_rgb(
+                                                trans.text_color[0],
+                                                trans.text_color[1],
+                                                trans.text_color[2],
                                             ),
-                                            STANDARD.decode(back).ok()?,
-                                        ),
-                                    })
+                                            outline_color: Color32::from_rgb(
+                                                trans.outline_color[0],
+                                                trans.outline_color[1],
+                                                trans.outline_color[2],
+                                            ),
+                                            background: Image::from_bytes(
+                                                format!(
+                                                    "bytes://manga_image_{}_overlay_{}",
+                                                    page_id, index
+                                                ),
+                                                STANDARD.decode(back).ok()?,
+                                            ),
+                                        })
+                                    }
                                 }
-                            }
 
-                            let res = get_app_data()
-                                .client
-                                .post(get_app_data().url.join("chapter_page").unwrap())
-                                .header(AUTHORIZATION, token)
-                                .json(&data)
-                                .send()
-                                .await
-                                .ok()?
-                                .bytes()
-                                .await
-                                .ok()?;
-                            Some(Arc::new((
-                                Image::from_bytes(
-                                    format!("bytes://manga_image_{}", page_id),
-                                    res.to_vec(),
-                                ),
-                                translations,
-                            )))
-                        }),
+                                let res = get_app_data()
+                                    .client
+                                    .post(get_app_data().url.join("chapter_page").unwrap())
+                                    .header(AUTHORIZATION, token)
+                                    .json(&data)
+                                    .send()
+                                    .await
+                                    .ok()?
+                                    .bytes()
+                                    .await
+                                    .ok()?;
+                                Some(Arc::new((
+                                    Image::from_bytes(
+                                        format!("bytes://manga_image_{}", page_id),
+                                        res.to_vec(),
+                                    ),
+                                    translations,
+                                )))
+                            },
+                            Some(ctx),
+                        ),
                     )
                 }
             }

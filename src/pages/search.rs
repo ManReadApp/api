@@ -151,6 +151,7 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: 
                                         &item.status(),
                                         &item.ext(),
                                         item.image_number(),
+                                        ui.ctx(),
                                     )
                                 } else {
                                     app.covers.lock().unwrap().get_url(&item.id_url())

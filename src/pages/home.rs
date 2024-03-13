@@ -83,7 +83,10 @@ impl App for HomePage {
                         download(&v.newest);
                         download(&v.favorites);
                         let ids = items.into_iter().collect::<HashMap<_, _>>();
-                        self.imgs = Some(ThreadHandler::new_async(CoverStorage::download_many(ids)))
+                        self.imgs = Some(ThreadHandler::new_async_ctx(
+                            CoverStorage::download_many(ids),
+                            Some(ui.ctx()),
+                        ))
                     }
                 } else {
                     data.display_error(ui)

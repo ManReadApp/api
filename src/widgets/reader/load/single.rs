@@ -2,6 +2,7 @@ use crate::widgets::reader::load::load_image;
 use crate::widgets::reader::progress::Progress;
 use crate::widgets::reader::storage::ImageStorage;
 use api_structure::reader::{MangaReaderResponse, ReaderPageResponse};
+use egui::Context;
 use std::sync::Arc;
 
 pub fn single(
@@ -13,14 +14,15 @@ pub fn single(
     reader_page: &Arc<ReaderPageResponse>,
     i_: u32,
     imgs_: &mut ImageStorage,
+    ctx: &Context,
 ) {
     let area = area as u32 * i_;
     for i in 0..=area + i_ {
-        if load_image(&v, hierachy, chapter, progress, imgs_, &reader_page, i).0 {
+        if load_image(&v, hierachy, chapter, progress, imgs_, &reader_page, i, ctx).0 {
             break;
         }
         if i != 0 && i <= area {
-            if load_image(&v, hierachy, chapter, progress, imgs_, &reader_page, i).0 {
+            if load_image(&v, hierachy, chapter, progress, imgs_, &reader_page, i, ctx).0 {
                 break;
             }
         }
