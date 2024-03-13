@@ -25,12 +25,13 @@ impl CoverStorage {
         }
     }
 
-    pub fn get_url(&mut self, url: &str) -> Option<ImageOverlay> {
+    pub fn get_url(&mut self, url: &str, ctx: &Context) -> Option<ImageOverlay> {
         if let Some(item) = self.items.get_mut(url) {
             item.opened = Some(now_timestamp().unwrap());
             return item.image.task.ready()?.clone();
         }
-        // TODO: load images from url
+        let new = ThreadHandler::new_async_ctx(Self::download_url(url), Some(ctx));
+        self.items.insert(url.to_string(), CoverTimeStamp::new(new));
         None
     }
 
@@ -100,6 +101,16 @@ impl CoverStorage {
                 manga_id.clone(),
                 Self::download_logic(manga_id, status, ext).await?,
             ))
+        }
+    }
+
+    fn download_url(url: &str) -> impl Future<Output = Option<ImageOverlay>> + Sized {
+        let req = get_app_data().client.get(url);
+        let uri = format!("url://{}", url);
+        async move {
+            let bytes = req.send().await.ok()?.bytes().await.ok()?;
+            let img = Image::from_bytes(uri, bytes.to_vec()).sense(Sense::click());
+            Some(ImageOverlay::ongoing(img))
         }
     }
 

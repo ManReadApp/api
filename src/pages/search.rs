@@ -3,6 +3,7 @@ use crate::get_app_data;
 use crate::util::parser::search_parser;
 use crate::widgets::image_overlay::ImageOverlay;
 use crate::window_storage::Page;
+use api_structure::scraper::{ExternalSearchData, ExternalSearchRequest, ScrapeSearchResult};
 use api_structure::search::{
     DisplaySearch, Field, ItemKind, ItemOrArray, SearchRequest, SearchResponse, Status,
 };
@@ -25,16 +26,17 @@ use std::sync::MutexGuard;
 
 pub struct SearchPage {
     internal: SearchData<SearchResponse>,
+    external: SearchData<ScrapeSearchResult>,
     reset_scroll: bool,
     selected_search: String,
     searches: Fetcher<Vec<String>>,
+    init: bool,
 }
 
 pub struct SearchData<D: DisplaySearch> {
     searched: Vec<D>,
     fetcher: Fetcher<Vec<D>>,
     search: String,
-    init: bool,
     end: bool,
     require_new: bool,
     reload: bool,
@@ -72,7 +74,14 @@ impl SearchPage {
                 searched: vec![],
                 fetcher,
                 search,
-                init: false,
+                end: false,
+                require_new: false,
+                reload: false,
+            },
+            external: SearchData {
+                searched: vec![],
+                fetcher: Fetcher::new(ExternalSearchRequest::request(&get_app_data().url).unwrap()),
+                search: "".to_string(),
                 end: false,
                 require_new: false,
                 reload: false,
@@ -80,21 +89,28 @@ impl SearchPage {
             reset_scroll: false,
             selected_search: "internal".to_string(),
             searches,
+            init: false,
         }
     }
 
-    fn move_data(&mut self, ctx: &Context) {
-        if !self.internal.init {
-            self.internal.init = true;
+    fn init(&mut self, ctx: &Context) {
+        if !&self.init {
+            self.init = true;
             self.internal.fetcher.set_ctx(ctx.clone());
+            self.external.fetcher.set_ctx(ctx.clone());
             self.searches.set_ctx(ctx.clone());
         }
-        if self.internal.fetcher.result().is_some() {
+    }
+}
+
+impl<T: DisplaySearch> SearchData<T> {
+    fn move_data(&mut self, ctx: &Context) {
+        if self.fetcher.result().is_some() {
             let mut new = Fetcher::new_ctx(
                 SearchRequest::request(&get_app_data().url).unwrap(),
                 ctx.clone(),
             );
-            mem::swap(&mut new, &mut self.internal.fetcher);
+            mem::swap(&mut new, &mut self.fetcher);
             let result = new.take_result().unwrap();
             match result {
                 Complete::ApiError(e) => error!("{:?}", e),
@@ -102,26 +118,26 @@ impl SearchPage {
                 Complete::Bytes(_) => unreachable!(),
                 Complete::Json(mut v) => {
                     if v.is_empty() {
-                        self.internal.end = true
+                        self.end = true
                     } else {
-                        if self.internal.reload {
-                            self.internal.searched = vec![];
+                        if self.reload {
+                            self.searched = vec![];
                         }
-                        self.internal.searched.append(&mut v);
+                        self.searched.append(&mut v);
                         get_app_data().search.lock().unwrap().page += 1;
                     }
                 }
             }
-            self.internal
-                .fetcher
+            self.fetcher
                 .set_body(&*get_app_data().search.lock().unwrap());
         }
 
-        if self.internal.require_new && !self.internal.fetcher.loading() {
-            self.internal.fetcher.send()
+        if self.require_new && !self.fetcher.loading() {
+            self.fetcher.send()
         }
     }
 }
+
 fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: bool) {
     let height = ui.available_height();
     let itemsxrow = (ui.available_width() / 200.).floor();
@@ -154,7 +170,7 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: 
                                         ui.ctx(),
                                     )
                                 } else {
-                                    app.covers.lock().unwrap().get_url(&item.id_url())
+                                    app.covers.lock().unwrap().get_url(&item.id_url(), ui.ctx())
                                 }
                             };
                             if let Some(img) = image {
@@ -200,7 +216,8 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: 
 
 impl App for SearchPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
-        self.move_data(ctx);
+        self.init(ctx);
+        self.internal.move_data(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
             let (parsed, errors) = search_parser(
                 &self.internal.search,
