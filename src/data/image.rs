@@ -6,7 +6,7 @@ use api_structure::search::Status;
 use egui::{Context, Image, Sense};
 use ethread::ThreadHandler;
 use futures_util::{stream, StreamExt};
-use reqwest::header::AUTHORIZATION;
+use reqwest::header::{AUTHORIZATION, USER_AGENT};
 use std::collections::HashMap;
 use std::future::Future;
 use std::time::Duration;
@@ -105,7 +105,7 @@ impl CoverStorage {
     }
 
     fn download_url(url: &str) -> impl Future<Output = Option<ImageOverlay>> + Sized {
-        let req = get_app_data().client.get(url);
+        let req = get_app_data().client.get(url).header(USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.3");
         let uri = format!("url://{}", url);
         async move {
             let bytes = req.send().await.ok()?.bytes().await.ok()?;

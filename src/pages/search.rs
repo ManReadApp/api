@@ -5,7 +5,7 @@ use crate::widgets::image_overlay::ImageOverlay;
 use crate::window_storage::Page;
 use api_structure::scraper::{ExternalSearchData, ExternalSearchRequest, ScrapeSearchResult};
 use api_structure::search::{
-    DisplaySearch, Field, ItemKind, ItemOrArray, SearchRequest, SearchResponse, Status,
+    Array, DisplaySearch, Field, ItemKind, ItemOrArray, SearchRequest, SearchResponse, Status,
 };
 use api_structure::{Request, RequestImpl, SearchUris};
 use chrono::Duration;
@@ -13,8 +13,8 @@ use eframe::emath::vec2;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{
-    Color32, ComboBox, Context, Grid, Image, Label, OpenUrl, ScrollArea, Sense, Spinner, TextEdit,
-    Ui, Vec2,
+    Color32, ComboBox, Context, Grid, Image, Label, OpenUrl, ScrollArea, Sense, Spinner,
+    TextBuffer, TextEdit, Ui, Vec2,
 };
 use ethread::ThreadHandler;
 use log::{error, info};
@@ -53,6 +53,23 @@ impl<D: DisplaySearch> SearchData<D> {
 }
 
 impl SearchPage {
+    pub fn search_field_parser<'a>(
+        search: &'a mut String,
+        allowed: &'a Vec<Field>,
+    ) -> (TextEdit<'a>, Array, Vec<String>) {
+        let (parsed, errors) = search_parser(&search, false, allowed);
+        let color = if !errors.is_empty() {
+            Some(Color32::from_rgb(255, 64, 64))
+        } else {
+            None
+        };
+        let mut search_field = TextEdit::singleline(search);
+        if let Some(color) = color {
+            search_field = search_field.text_color(color)
+        }
+        (search_field, parsed, errors)
+    }
+
     pub fn new() -> Self {
         let mut fetcher: Fetcher<Vec<SearchResponse>> =
             Fetcher::new(SearchRequest::request(&get_app_data().url).unwrap());
@@ -217,26 +234,17 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: 
 impl App for SearchPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
         self.init(ctx);
+        //TODO:
         self.internal.move_data(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
-            let (parsed, errors) = search_parser(
-                &self.internal.search,
-                false,
-                &vec![Field::new(
-                    "title".to_string(),
-                    vec![String::new(), "t".to_string()],
-                    ItemKind::String,
-                )],
-            );
-            let color = if !errors.is_empty() {
-                Some(Color32::from_rgb(255, 64, 64))
-            } else {
-                None
-            };
-            let mut search_field = TextEdit::singleline(&mut self.internal.search);
-            if let Some(color) = color {
-                search_field = search_field.text_color(color)
-            }
+            //TODO:
+            let binding = vec![Field::new(
+                "title".to_string(),
+                vec![String::new(), "t".to_string()],
+                ItemKind::String,
+            )];
+            let (search_field, parsed, errors) =
+                Self::search_field_parser(&mut self.internal.search, &binding);
             ui.horizontal(|ui| {
                 let resp = ui.add(
                     search_field
@@ -275,6 +283,7 @@ impl App for SearchPage {
                 }
             });
 
+            //TODO:
             let item = ItemOrArray::Array(parsed);
             {
                 let mut stored = get_app_data().search.lock().unwrap();

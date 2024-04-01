@@ -5,6 +5,7 @@ use crate::data::shared_data::SharedData;
 #[cfg(target_arch = "wasm32")]
 use egui::{include_image, vec2, Image, Vec2};
 use std::sync::Arc;
+use std::time::SystemTime;
 
 mod app;
 mod data;
@@ -25,7 +26,20 @@ fn get_app_data() -> &'static Arc<SharedData> {
 #[tokio::main]
 async fn main() -> eframe::Result<()> {
     unsafe { APP_DATA = Some(Arc::new(SharedData::new())) };
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{} {} {}] {}",
+                humantime::format_rfc3339_seconds(SystemTime::now()),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(std::io::stdout())
+        .chain(fern::log_file("output.log").unwrap())
+        .apply().unwrap();
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_min_inner_size([380.0, 400.0])

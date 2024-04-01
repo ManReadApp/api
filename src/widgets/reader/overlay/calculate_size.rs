@@ -1,4 +1,4 @@
-use crate::fonts::Fonts;
+use crate::get_app_data;
 use crate::widgets::reader::overlay::ReaderTranslationArea;
 use eframe::emath::Rect;
 use eframe::epaint::text::{LayoutJob, TextFormat};
@@ -7,7 +7,19 @@ use egui::{Ui, WidgetText};
 
 impl ReaderTranslationArea {
     pub(crate) fn get_size(&self, rect: Rect, ui: &mut Ui) -> WidgetText {
-        let v = FontId::new(12., FontFamily::Name(Fonts::CcWildWords.to_string().into()));
+        let v = FontId::new(
+            12.,
+            FontFamily::Name(
+                get_app_data()
+                    .fonts
+                    .lock()
+                    .unwrap()
+                    .first()
+                    .unwrap()
+                    .clone()
+                    .into(),
+            ),
+        );
         let text = match self.translated_text.get("eng") {
             Some(v) => v,
             None => self.translated_text.values().next().unwrap(),

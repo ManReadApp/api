@@ -28,6 +28,7 @@ pub struct SharedData {
     pub spinner: Arc<Mutex<Option<Image<'static>>>>,
     pub lang_hierarchy: Vec<String>,
     pub search: Arc<Mutex<SearchRequest>>,
+    pub fonts: Arc<Mutex<Vec<String>>>,
 }
 
 impl SharedData {
@@ -149,6 +150,7 @@ impl SharedData {
                     items: vec![],
                 }),
             })),
+            fonts: Arc::new(Mutex::new(vec![])),
         }
     }
 

@@ -12,7 +12,7 @@ pub struct TemplateApp {
 
 fn init(ctx: &Context) {
     egui_extras::install_image_loaders(ctx);
-    setup_custom_fonts(ctx);
+    setup_custom_fonts(ctx.clone());
 }
 
 impl eframe::App for TemplateApp {
