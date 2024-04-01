@@ -25,6 +25,7 @@ use actix_web::web::{Data, Json};
 use actix_web::{post, web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use api_structure::error::{ApiErr, ApiErrorType};
+use api_structure::fonts::FontRequest;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -209,10 +210,6 @@ fn fonts() -> Fonts {
 #[post("/fonts")]
 pub async fn get_fonts(data: Data<Fonts>) -> Json<Vec<String>> {
     Json(data.iter().map(|(v, _)| v.to_string()).collect())
-}
-#[derive(Deserialize, Serialize)]
-pub struct FontRequest {
-    file: String,
 }
 #[post("/font")]
 pub async fn get_font(Json(request): Json<FontRequest>, data: Data<Fonts>) -> ApiResult<NamedFile> {
