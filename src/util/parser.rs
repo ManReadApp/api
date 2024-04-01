@@ -56,7 +56,13 @@ pub fn search_parser(s: &str, or_default: bool, field: &Vec<Field>) -> (Array, V
                 push_err(push(&mut items, UnparsedItem::List(true), depth, 0, field));
                 section.drain(..);
             } else if section == vec!['a', 'n', 'd', ':'] {
-                push_err(push(&mut items, UnparsedItem::List(false), depth, 0, field));
+                push_err(push(
+                    &mut items,
+                    UnparsedItem::List(false),
+                    depth,
+                    0,
+                    field,
+                ));
                 section.drain(..);
             } else {
                 push_err(push(
@@ -119,12 +125,12 @@ fn push(
 
     if let Some(ItemOrArray::Array(v)) = arr.last_mut() {
         if d_l == depth {
-            arr.push(try_from_str(item, &field)?);
+            arr.push(try_from_str(item, field)?);
         } else {
-            push(&mut v.items, item, depth, d_l + 1, &field)?;
+            push(&mut v.items, item, depth, d_l + 1, field)?;
         }
     } else {
-        arr.push(try_from_str(item, &field)?);
+        arr.push(try_from_str(item, field)?);
     }
 
     Ok(())

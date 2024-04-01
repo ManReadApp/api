@@ -39,7 +39,8 @@ async fn main() -> eframe::Result<()> {
         .level(log::LevelFilter::Debug)
         .chain(std::io::stdout())
         .chain(fern::log_file("output.log").unwrap())
-        .apply().unwrap();
+        .apply()
+        .unwrap();
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_min_inner_size([380.0, 400.0])

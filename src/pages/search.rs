@@ -3,13 +3,16 @@ use crate::get_app_data;
 use crate::util::parser::search_parser;
 use crate::widgets::image_overlay::ImageOverlay;
 use crate::window_storage::Page;
-use api_structure::scraper::{ExternalSearchData, ExternalSearchRequest, ScrapeSearchResult};
+use api_structure::scraper::{
+    ExternalSearchData, ExternalSearchRequest, ScrapeSearchResult, ValidSearches,
+};
 use api_structure::search::{
     Array, DisplaySearch, Field, ItemKind, ItemOrArray, SearchRequest, SearchResponse, Status,
 };
 use api_structure::{Request, RequestImpl, SearchUris};
 use chrono::Duration;
 use eframe::emath::vec2;
+use eframe::glow::Query;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{
@@ -17,7 +20,7 @@ use egui::{
     TextBuffer, TextEdit, Ui, Vec2,
 };
 use ethread::ThreadHandler;
-use log::{error, info};
+use log::{debug, error, info};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -27,9 +30,11 @@ use std::sync::MutexGuard;
 pub struct SearchPage {
     internal: SearchData<SearchResponse>,
     external: SearchData<ScrapeSearchResult>,
+    external_search: ExternalSearchRequest,
+    external_change: bool,
     reset_scroll: bool,
     selected_search: String,
-    searches: Fetcher<Vec<String>>,
+    searches: Fetcher<HashMap<String, ValidSearches>>,
     init: bool,
 }
 
@@ -55,7 +60,7 @@ impl<D: DisplaySearch> SearchData<D> {
 impl SearchPage {
     pub fn search_field_parser<'a>(
         search: &'a mut String,
-        allowed: &'a Vec<Field>,
+        allowed: &Vec<Field>,
     ) -> (TextEdit<'a>, Array, Vec<String>) {
         let (parsed, errors) = search_parser(&search, false, allowed);
         let color = if !errors.is_empty() {
@@ -103,6 +108,11 @@ impl SearchPage {
                 require_new: false,
                 reload: false,
             },
+            external_search: ExternalSearchRequest {
+                data: ExternalSearchData::String(("".to_string(), 1)),
+                uri: "asura".to_string(),
+            },
+            external_change: false,
             reset_scroll: false,
             selected_search: "internal".to_string(),
             searches,
@@ -121,7 +131,38 @@ impl SearchPage {
 }
 
 impl<T: DisplaySearch> SearchData<T> {
-    fn move_data(&mut self, ctx: &Context) {
+    fn move_data_external(&mut self, ctx: &Context, search: &mut ExternalSearchRequest) {
+        if self.fetcher.result().is_some() {
+            let mut new = Fetcher::new_ctx(
+                ExternalSearchRequest::request(&get_app_data().url).unwrap(),
+                ctx.clone(),
+            );
+            mem::swap(&mut new, &mut self.fetcher);
+            let result = new.take_result().unwrap();
+            match result {
+                Complete::ApiError(e) => panic!(),
+                Complete::Error(e) => panic!(),
+                Complete::Bytes(_) => unreachable!(),
+                Complete::Json(mut v) => {
+                    if v.is_empty() {
+                        self.end = true
+                    } else {
+                        if self.reload {
+                            self.searched = vec![];
+                        }
+                        self.searched.append(&mut v);
+                        search.next_page();
+                    }
+                }
+            }
+        }
+
+        if self.require_new && !self.fetcher.loading() {
+            self.fetcher.set_body(&search);
+            self.fetcher.send()
+        }
+    }
+    fn move_data_internal(&mut self, ctx: &Context) {
         if self.fetcher.result().is_some() {
             let mut new = Fetcher::new_ctx(
                 SearchRequest::request(&get_app_data().url).unwrap(),
@@ -187,7 +228,7 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: 
                                         ui.ctx(),
                                     )
                                 } else {
-                                    app.covers.lock().unwrap().get_url(&item.id_url(), ui.ctx())
+                                    app.covers.lock().unwrap().get_url(&item.cover(), ui.ctx())
                                 }
                             };
                             if let Some(img) = image {
@@ -234,17 +275,45 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: 
 impl App for SearchPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
         self.init(ctx);
-        //TODO:
-        self.internal.move_data(ctx);
-        egui::CentralPanel::default().show(ctx, |ui| {
-            //TODO:
-            let binding = vec![Field::new(
+        let mut parser = None;
+        let mut internal = false;
+        if self.selected_search != "internal" {
+            self.external
+                .move_data_external(ctx, &mut self.external_search);
+
+            if let Some(Complete::Json(v)) = self.searches.result() {
+                parser = v.get(&self.selected_search).unwrap().parser();
+            }
+        } else {
+            self.internal.move_data_internal(ctx);
+            internal = true;
+            parser = Some(vec![Field::new(
                 "title".to_string(),
                 vec![String::new(), "t".to_string()],
                 ItemKind::String,
-            )];
-            let (search_field, parsed, errors) =
-                Self::search_field_parser(&mut self.internal.search, &binding);
+            )]);
+        }
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let (search_field, parsed, errors) = match parser {
+                None => (
+                    TextEdit::singleline(match internal {
+                        true => &mut self.internal.search,
+                        false => &mut self.external.search,
+                    }),
+                    Array {
+                        or: false,
+                        items: vec![],
+                    },
+                    vec![],
+                ),
+                Some(ref binding) => Self::search_field_parser(
+                    match internal {
+                        true => &mut self.internal.search,
+                        false => &mut self.external.search,
+                    },
+                    &binding,
+                ),
+            };
             ui.horizontal(|ui| {
                 let resp = ui.add(
                     search_field
@@ -253,8 +322,8 @@ impl App for SearchPage {
                         .desired_width(ui.available_width() - 140.),
                 );
                 ui.add_enabled_ui(self.searches.result().is_some(), |ui| {
-                    let padding = ui.style().spacing.button_padding;
-                    //ui.style_mut().spacing.button_padding = vec2(5.0, 10.0);
+                    let padding = ui.style_mut().spacing.interact_size.y;
+                    ui.style_mut().spacing.interact_size.y = 33.0;
                     ComboBox::new("search_selector", "")
                         .wrap(true)
                         .selected_text(display_label(&self.selected_search))
@@ -262,7 +331,7 @@ impl App for SearchPage {
                             let items = match self.searches.result() {
                                 None => vec![],
                                 Some(v) => match v {
-                                    Complete::Json(v) => v.clone(),
+                                    Complete::Json(v) => v.keys().cloned().collect::<Vec<_>>(),
                                     _ => vec!["error".to_string()],
                                 },
                             };
@@ -276,28 +345,37 @@ impl App for SearchPage {
                                 ui.selectable_value(&mut self.selected_search, item, label);
                             }
                         });
-                    ui.style_mut().spacing.button_padding = padding;
+                    ui.style_mut().spacing.interact_size.y = padding;
                 });
                 if !errors.is_empty() {
                     resp.on_hover_text(errors.join("\n"));
                 }
             });
 
-            //TODO:
-            let item = ItemOrArray::Array(parsed);
-            {
+            if internal {
+                let item = ItemOrArray::Array(parsed);
                 let mut stored = get_app_data().search.lock().unwrap();
                 if item != stored.query {
-                    info!("{:?}", item);
+                    debug!("{:?}", item);
                     stored.query = item;
                     stored.page = 1;
                     self.reset_scroll = true;
                     self.internal.reload = true;
                     reset(&mut self.internal.fetcher, stored);
                 }
+            } else if self.external_change {
+                self.external_search.reset_page();
+                self.reset_scroll = true;
+                self.external.reload;
+                reset_ext(&mut self.external.fetcher, &self.external_search);
             }
+
             ui.add_space(10.);
-            display_grid(ui, &mut self.internal, self.reset_scroll);
+            match internal {
+                true => display_grid(ui, &mut self.internal, self.reset_scroll),
+                false => display_grid(ui, &mut self.external, self.reset_scroll),
+            }
+
             self.reset_scroll = false;
         });
     }
@@ -305,6 +383,11 @@ impl App for SearchPage {
 
 fn reset(fetcher: &mut Fetcher<Vec<SearchResponse>>, data: MutexGuard<SearchRequest>) {
     fetcher.set_body(&*data);
+    fetcher.send();
+}
+
+fn reset_ext(fetcher: &mut Fetcher<Vec<ScrapeSearchResult>>, data: &ExternalSearchRequest) {
+    fetcher.set_body(data);
     fetcher.send();
 }
 
