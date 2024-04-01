@@ -1,4 +1,5 @@
 use crate::env::config::Config;
+use crate::errors::ApiResult;
 use crate::services::auth_service::validator;
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::auth_tokens::AuthTokenDBService;
@@ -18,12 +19,16 @@ use crate::services::db::version::VersionDBService;
 use crate::services::internal::internal_service;
 use crate::services::uri_service::UriService;
 use crate::util::create_folders;
+use actix_files::NamedFile;
 use actix_web::middleware::Logger;
-use actix_web::web::Data;
-use actix_web::{web, App, HttpServer};
+use actix_web::web::{Data, Json};
+use actix_web::{post, web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
+use api_structure::error::{ApiErr, ApiErrorType};
 use log::info;
-#[cfg(feature = "dev")]
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs::read_dir;
 use std::path::PathBuf;
 use std::sync::Arc;
 use surrealdb::engine::local::Db;
@@ -100,6 +105,7 @@ async fn main() -> std::io::Result<()> {
                 secret: cfgc.secret_key.as_bytes().to_vec(),
             }))
             .app_data(Data::new(cfgc.clone()))
+            .app_data(Data::new(fonts()))
             .app_data(Data::new(AuthTokenDBService::new(dbc.clone())))
             .app_data(Data::new(ChapterDBService::new(dbc.clone())))
             .app_data(Data::new(ChapterVersionDBService::new(dbc.clone())))
@@ -118,8 +124,14 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(single))
             .app_data(Data::new(multi))
             .app_data(Data::new(meta))
-            .service(web::redirect("/source", "https://github.com/ManReadApp/ManRead"))
-            .service(web::redirect("/github", "https://github.com/ManReadApp/ManRead"))
+            .service(web::redirect(
+                "/source",
+                "https://github.com/ManReadApp/ManRead",
+            ))
+            .service(web::redirect(
+                "/github",
+                "https://github.com/ManReadApp/ManRead",
+            ))
             .service(web::redirect("/discord", "https://discord.gg/FeEe4rDS"))
             .service(web::redirect("/ko_fi", "https://ko-fi.com/manread"))
             .service(web::redirect("/kofi", "https://ko-fi.com/manread"))
@@ -131,6 +143,8 @@ async fn main() -> std::io::Result<()> {
             .service(routes::frontend::frontend_ep)
             .service(
                 web::scope("/api")
+                    .service(get_fonts)
+                    .service(get_font)
                     .service(routes::image::upload_images)
                     .service(routes::image::spinner)
                     .service(routes::user::sign_up_route)
@@ -173,4 +187,39 @@ fn log_url(config: &Config) {
         info!("Starting server at http://{}:{}/", &ip, config.port);
     }
     info!("Starting server at http://0.0.0.0:{}/", config.port);
+}
+
+pub type Fonts = HashMap<String, PathBuf>;
+
+fn fonts() -> Fonts {
+    let mut archive = HashMap::new();
+    for file in read_dir("data/fonts").unwrap() {
+        let file = file.unwrap();
+        let name = file.file_name().to_str().unwrap_or_default().to_lowercase();
+        if name.ends_with(".ttf") || name.ends_with(".otf") {
+            archive.insert(
+                file.file_name().to_str().unwrap_or_default()[..name.len() - 4].to_string(),
+                file.path(),
+            );
+        }
+    }
+    archive
+}
+
+#[post("/fonts")]
+pub async fn get_fonts(data: Data<Fonts>) -> Json<Vec<String>> {
+    Json(data.iter().map(|(v, _)| v.to_string()).collect())
+}
+#[derive(Deserialize, Serialize)]
+pub struct FontRequest {
+    file: String,
+}
+#[post("/font")]
+pub async fn get_font(Json(request): Json<FontRequest>, data: Data<Fonts>) -> ApiResult<NamedFile> {
+    let path = data.get(&request.file).ok_or(ApiErr {
+        message: Some("Font file does not exist".to_string()),
+        cause: None,
+        err_type: ApiErrorType::InvalidInput,
+    })?;
+    Ok(NamedFile::open(path)?)
 }
