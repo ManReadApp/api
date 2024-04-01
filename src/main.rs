@@ -26,12 +26,15 @@ use actix_web::{post, web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use api_structure::error::{ApiErr, ApiErrorType};
 use api_structure::fonts::FontRequest;
-use log::info;
+use fern::colors::{Color, ColoredLevelConfig};
+use log::{info, LevelFilter};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
+use std::time::SystemTime;
 use surrealdb::engine::local::Db;
 use surrealdb::Surreal;
 
@@ -62,7 +65,27 @@ async fn main() -> std::io::Result<()> {
         std::fs::canonicalize(&config.root_folder).unwrap(),
         PathBuf::from("../scraper/tests"),
     );
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or(config.rust_log.clone()));
+    let colors = ColoredLevelConfig::default()
+        .trace(Color::Cyan)
+        .debug(Color::Blue)
+        .info(Color::Green);
+    fern::Dispatch::new()
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "[{} {} {}] {}",
+                humantime::format_rfc3339_seconds(SystemTime::now()),
+                colors.color(record.level()),
+                record.target(),
+                message
+            ))
+        })
+        .level(log::LevelFilter::from_str(&config.rust_log).unwrap())
+        .level_for("selectors", LevelFilter::Off) //remove logger for scraping
+        .level_for("html5ever", LevelFilter::Off)
+        .level_for("hyper", LevelFilter::Off)
+        .chain(std::io::stdout())
+        .apply()
+        .unwrap();
     let db = Arc::new(establish(config.root_folder.clone(), true).await.unwrap());
     log_url(&config);
     #[cfg(feature = "https")]
