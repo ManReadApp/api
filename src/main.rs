@@ -4,6 +4,8 @@ use crate::app::TemplateApp;
 use crate::data::shared_data::SharedData;
 #[cfg(target_arch = "wasm32")]
 use egui::{include_image, vec2, Image, Vec2};
+#[cfg(not(target_arch = "wasm32"))]
+use fern::colors::{Color, ColoredLevelConfig};
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -26,17 +28,22 @@ fn get_app_data() -> &'static Arc<SharedData> {
 #[tokio::main]
 async fn main() -> eframe::Result<()> {
     unsafe { APP_DATA = Some(Arc::new(SharedData::new())) };
+    let colors = ColoredLevelConfig::default()
+        .trace(Color::Cyan)
+        .debug(Color::Blue)
+        .info(Color::Green);
     fern::Dispatch::new()
-        .format(|out, message, record| {
+        .format(move |out, message, record| {
             out.finish(format_args!(
                 "[{} {} {}] {}",
                 humantime::format_rfc3339_seconds(SystemTime::now()),
-                record.level(),
+                colors.color(record.level()),
                 record.target(),
                 message
             ))
         })
         .level(log::LevelFilter::Debug)
+        .level_for("hyper", log::LevelFilter::Off)
         .chain(std::io::stdout())
         .chain(fern::log_file("output.log").unwrap())
         .apply()

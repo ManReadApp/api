@@ -56,13 +56,7 @@ pub fn search_parser(s: &str, or_default: bool, field: &Vec<Field>) -> (Array, V
                 push_err(push(&mut items, UnparsedItem::List(true), depth, 0, field));
                 section.drain(..);
             } else if section == vec!['a', 'n', 'd', ':'] {
-                push_err(push(
-                    &mut items,
-                    UnparsedItem::List(false),
-                    depth,
-                    0,
-                    field,
-                ));
+                push_err(push(&mut items, UnparsedItem::List(false), depth, 0, field));
                 section.drain(..);
             } else {
                 push_err(push(
