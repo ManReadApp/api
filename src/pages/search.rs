@@ -4,7 +4,7 @@ use crate::util::parser::search_parser;
 use crate::widgets::image_overlay::ImageOverlay;
 use crate::window_storage::Page;
 use api_structure::scraper::{
-    ExternalSearchData, ExternalSearchRequest, ScrapeSearchResult, ValidSearches,
+    ExternalSearchData, ExternalSearchRequest, ScrapeSearchResult, SimpleSearch, ValidSearches,
 };
 use api_structure::search::{
     Array, DisplaySearch, Field, ItemKind, ItemOrArray, SearchRequest, SearchResponse, Status,
@@ -20,7 +20,7 @@ use egui::{
     TextBuffer, TextEdit, Ui, Vec2,
 };
 use ethread::ThreadHandler;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -140,8 +140,8 @@ impl<T: DisplaySearch> SearchData<T> {
             mem::swap(&mut new, &mut self.fetcher);
             let result = new.take_result().unwrap();
             match result {
-                Complete::ApiError(e) => panic!(),
-                Complete::Error(e) => panic!(),
+                Complete::ApiError(e) => panic!("{e:?}"),
+                Complete::Error(e) => panic!("{e:?}"),
                 Complete::Bytes(_) => unreachable!(),
                 Complete::Json(mut v) => {
                     if v.is_empty() {
@@ -294,6 +294,10 @@ impl App for SearchPage {
             )]);
         }
         egui::CentralPanel::default().show(ctx, |ui| {
+            let search = match internal {
+                false => self.external.search.clone(),
+                true => "".to_string(),
+            };
             let (search_field, parsed, errors) = match parser {
                 None => (
                     TextEdit::singleline(match internal {
@@ -321,6 +325,7 @@ impl App for SearchPage {
                         .hint_text("Advanced Search")
                         .desired_width(ui.available_width() - 140.),
                 );
+                let selected = self.selected_search.clone();
                 ui.add_enabled_ui(self.searches.result().is_some(), |ui| {
                     let padding = ui.style_mut().spacing.interact_size.y;
                     ui.style_mut().spacing.interact_size.y = 33.0;
@@ -347,10 +352,43 @@ impl App for SearchPage {
                         });
                     ui.style_mut().spacing.interact_size.y = padding;
                 });
+                if selected != self.selected_search && self.selected_search != "internal" {
+                    self.external_search.uri = self.selected_search.clone();
+                    if let Some(Complete::Json(v)) = self.searches.result() {
+                        self.external_search.data = match v.get(&self.selected_search).unwrap() {
+                            ValidSearches::String => {
+                                ExternalSearchData::String(("".to_string(), 1))
+                            }
+                            ValidSearches::ValidSearch(_) => {
+                                ExternalSearchData::Simple(SimpleSearch {
+                                    search: "".to_string(),
+                                    sort: None,
+                                    desc: false,
+                                    status: None,
+                                    tags: vec![],
+                                    page: 1,
+                                })
+                            }
+                        };
+                        self.external_change = true;
+                        self.reset_scroll = true;
+                        self.external.reload = true;
+                        reset_ext(&mut self.external.fetcher, &self.external_search);
+                    } else {
+                        unreachable!()
+                    }
+                }
                 if !errors.is_empty() {
                     resp.on_hover_text(errors.join("\n"));
                 }
             });
+
+            if !internal && search != self.external.search {
+                self.external_search
+                    .data
+                    .update_query(&self.external.search);
+                self.external_change = true;
+            }
 
             if internal {
                 let item = ItemOrArray::Array(parsed);
@@ -366,7 +404,8 @@ impl App for SearchPage {
             } else if self.external_change {
                 self.external_search.reset_page();
                 self.reset_scroll = true;
-                self.external.reload;
+                self.external.reload = true;
+                self.external_change = false;
                 reset_ext(&mut self.external.fetcher, &self.external_search);
             }
 
