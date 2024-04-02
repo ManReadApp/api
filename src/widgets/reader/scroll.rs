@@ -40,17 +40,36 @@ pub fn set_progress(
                                     progress.pixels = processed - max;
                                 }
                                 Action::Next => {
-                                    //TODO:
+                                    if let Some(v) = mrr.get_next_chapter(&progress.chapter) {
+                                        progress.image = 1;
+                                        progress.pixels = processed - max;
+                                        progress.chapter = v.chapter_id.clone();
+                                    }
                                 }
                             }
                         } else if processed < 0.0 {
                             match v.get_page(progress.image as i32 - 1) {
                                 Action::Prev => {
-                                    //TODO:
+                                    if let Some(v) = mrr.get_prev_chapter(&progress.chapter) {
+                                        if let State::ReaderPageResponse(rpp) = get_page_resp(
+                                            mrr.clone(),
+                                            hierachy,
+                                            page_data,
+                                            &v.chapter_id,
+                                            ui.ctx(),
+                                        ) {
+                                            let last_page =
+                                                rpp.pages.keys().max().copied().unwrap();
+                                            progress.chapter = v.chapter_id.clone();
+                                            let v = rpp.pages.get(&last_page).unwrap();
+                                            progress.image = last_page;
+                                            progress.pixels = v.height(area.x) + processed
+                                        }
+                                    }
                                 }
                                 Action::Page(v) => {
                                     progress.image -= 1;
-                                    progress.pixels = v.height(area.x);
+                                    progress.pixels = v.height(area.x) + processed;
                                 }
                                 _ => unreachable!(),
                             }
