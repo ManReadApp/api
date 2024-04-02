@@ -45,4 +45,30 @@ pub fn multi(
         }
         count += 1;
     }
+
+    count = 1;
+    processed = 0.0;
+    while processed < area {
+        let (br, img) = load_image(
+            &v,
+            hierachy,
+            chapter,
+            imgs_,
+            reader_page.clone(),
+            ctx,
+            page_data,
+            progress.image as i32 - count,
+        );
+        match img {
+            Action::Page(v) => {
+                let a = if height { v.height(x) } else { v.width(x) };
+                processed += a;
+            }
+            _ => {}
+        }
+        if br {
+            break;
+        }
+        count += 1;
+    }
 }
