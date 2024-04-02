@@ -9,20 +9,20 @@ pub fn get_img_(
     ch: State,
     page: u32,
 ) -> Option<(
-    ReaderPage,
+    Arc<ReaderPage>,
     Arc<(Image<'static>, Vec<ReaderTranslationArea>)>,
 )> {
     match ch {
-        State::ReaderPageResponse(v_) => match v_.get_page(page) {
+        State::ReaderPageResponse(v_) => match v_.get_page(page as i32) {
             Action::Page(r) => {
                 let img = get_img(&r.page_id, imgs);
-                Some((r.clone(), img))
+                Some((r, img))
             }
             _ => None,
         },
-        State::ChapterLoading => Some((ReaderPage::new(100, 100), imgs.loading.clone())),
-        State::ChapterError => Some((ReaderPage::new(100, 100), imgs.error.clone())),
-        State::NoChapter => Some((ReaderPage::new(100, 100), imgs.error.clone())),
+        State::ChapterLoading => Some((Arc::new(ReaderPage::new(100, 100)), imgs.loading.clone())),
+        State::ChapterError => Some((Arc::new(ReaderPage::new(100, 100)), imgs.error.clone())),
+        State::NoChapter => Some((Arc::new(ReaderPage::new(100, 100)), imgs.error.clone())),
     }
 }
 

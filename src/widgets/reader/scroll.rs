@@ -28,23 +28,23 @@ pub fn set_progress(
                 ui.ctx(),
             );
             if let State::ReaderPageResponse(v) = ch {
-                match v.get_page(progress.image) {
+                match v.get_page(progress.image as i32) {
                     Action::Page(page) => {
                         let max = page.height(area.x);
                         let processed = progress.pixels - scroll_delta.y;
                         if processed > max {
-                            match v.get_page(progress.image + 1) {
+                            match v.get_page((progress.image + 1) as i32) {
                                 Action::Prev => unreachable!(),
                                 Action::Page(_) => {
                                     progress.image += 1;
-                                    progress.pixels = 0.0;
+                                    progress.pixels = processed - max;
                                 }
                                 Action::Next => {
                                     //TODO:
                                 }
                             }
                         } else if processed < 0.0 {
-                            match v.get_page(progress.image - 1) {
+                            match v.get_page(progress.image as i32 - 1) {
                                 Action::Prev => {
                                     //TODO:
                                 }

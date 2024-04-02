@@ -11,7 +11,9 @@ use crate::widgets::reader::storage::{
     get_page_resp, get_version_key, ImageStorage, PageData, State,
 };
 use api_structure::image::MangaReaderImageRequest;
-use api_structure::reader::{Action, MangaReaderResponse, ReaderPageResponse, TranslationArea};
+use api_structure::reader::{
+    Action, MangaReaderResponse, ReaderChapter, ReaderPageResponse, TranslationArea,
+};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use eframe::emath::Vec2;
@@ -56,6 +58,7 @@ pub fn load_images(
             1,
             imgs,
             ctx,
+            page_data,
         ),
         ReadingMode::Double(_) => single(
             &v,
@@ -67,6 +70,7 @@ pub fn load_images(
             2,
             imgs,
             ctx,
+            page_data,
         ),
         ReadingMode::Strip => multi(
             &v,
@@ -80,6 +84,7 @@ pub fn load_images(
             true,
             imgs,
             ctx,
+            page_data,
         ),
         ReadingMode::Row(_) => multi(
             &v,
@@ -93,26 +98,48 @@ pub fn load_images(
             false,
             imgs,
             ctx,
+            page_data,
         ),
     }
 }
 
-fn load_image<'a>(
+fn load_image(
     v: &Arc<MangaReaderResponse>,
     hierachy: &[String],
     chapter: &str,
-    progress: &Progress,
     imgs: &mut ImageStorage,
-    rp: &'a Arc<ReaderPageResponse>,
-    offset: u32,
+    rp: Arc<ReaderPageResponse>,
     ctx: &Context,
-) -> (bool, Action<'a>) {
-    let p = rp.get_page(progress.image + offset);
+    page_data: &mut PageData,
+    page: i32,
+) -> (bool, Action) {
+    let mut p = rp.get_page(page);
     let cont = match &p {
-        Action::Prev => {
-            //TODO: load
-            true
-        }
+        Action::Prev => match v.get_prev_chapter(chapter) {
+            None => true,
+            Some(chapter) => {
+                let resp = get_page_resp(v.clone(), hierachy, page_data, &chapter.chapter_id, ctx);
+                match resp {
+                    State::ReaderPageResponse(rp) => {
+                        let page =
+                            rp.pages.keys().max().copied().unwrap_or_default() as i32 + (page - 1);
+                        let (a, b) = load_image(
+                            v,
+                            hierachy,
+                            &chapter.chapter_id,
+                            imgs,
+                            rp,
+                            ctx,
+                            page_data,
+                            page,
+                        );
+                        p = b;
+                        a
+                    }
+                    _ => true,
+                }
+            }
+        },
         Action::Page(p) => {
             if imgs.get(&p.page_id).is_none() {
                 let ver = get_version_key(v.get_chapter(chapter).unwrap(), hierachy);
@@ -121,7 +148,7 @@ fn load_image<'a>(
                         manga_id: v.manga_id.clone(),
                         chapter_id: chapter.to_string(),
                         version_id: ver,
-                        page: progress.image + offset,
+                        page: page as u32,
                         file_ext: p.ext.clone(),
                     };
                     let page_id = p.page_id.clone();
@@ -216,10 +243,30 @@ fn load_image<'a>(
             }
             false
         }
-        Action::Next => {
-            //TODO: load
-            true
-        }
+        Action::Next => match v.get_next_chapter(chapter) {
+            None => true,
+            Some(chapter) => {
+                let resp = get_page_resp(v.clone(), hierachy, page_data, &chapter.chapter_id, ctx);
+                let remove = rp.pages.keys().max().copied().unwrap_or_default();
+                match resp {
+                    State::ReaderPageResponse(rp) => {
+                        let (a, b) = load_image(
+                            v,
+                            hierachy,
+                            &chapter.chapter_id,
+                            imgs,
+                            rp,
+                            ctx,
+                            page_data,
+                            page - remove as i32,
+                        );
+                        p = b;
+                        a
+                    }
+                    _ => true,
+                }
+            }
+        },
     };
     (cont, p)
 }

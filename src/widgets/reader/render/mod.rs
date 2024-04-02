@@ -5,7 +5,7 @@ use crate::widgets::reader::settings::ReadingMode;
 use crate::widgets::reader::storage::{get_page_resp, ImageStorage, PageData, State};
 use api_structure::reader::{Action, MangaReaderResponse, ReaderPage};
 use eframe::emath::{pos2, vec2, Rect, Vec2};
-use egui::Ui;
+use egui::{Color32, Rounding, Stroke, Ui};
 use std::sync::Arc;
 
 mod helper;
@@ -61,12 +61,12 @@ pub fn display_images(
         }
         ReadingMode::Strip => {
             let mut page = progress.image;
-            let rp = ReaderPage::new(100, 100);
+            let rp = Arc::new(ReaderPage::new(100, 100));
             let mut processed: f32 = -progress.pixels;
             let end: f32 = size.y;
             loop {
                 let page = match &ch {
-                    State::ReaderPageResponse(v_) => match v_.get_page(page) {
+                    State::ReaderPageResponse(v_) => match v_.get_page(page as i32) {
                         Action::Page(r) => {
                             let img = get_img(&r.page_id, imgs);
                             page += 1;
@@ -81,20 +81,43 @@ pub fn display_images(
                                 Some(v) => chapter = v,
                             }
                             ch = get_page_resp(v.clone(), hierachy, page_data, &chapter, ui.ctx());
+                            page = 1;
                             ui.ctx().request_repaint();
                             None
                         }
                         _ => unreachable!(),
                     },
-                    State::ChapterLoading => Some((true, &rp, imgs.loading.clone())),
-                    State::ChapterError => Some((true, &rp, imgs.error.clone())),
-                    State::NoChapter => Some((true, &rp, imgs.error.clone())),
+                    State::ChapterLoading => Some((true, rp.clone(), imgs.loading.clone())),
+                    State::ChapterError => Some((true, rp.clone(), imgs.error.clone())),
+                    State::NoChapter => Some((true, rp.clone(), imgs.error.clone())),
                 };
                 if let Some((endd, rp, img)) = page {
                     let height = rp.height(size.x);
                     let rect =
                         Rect::from_min_size(pos2(view_start.x, processed), vec2(size.x, height));
                     img.0.paint_at(ui, rect);
+                    match &ch {
+                        State::ReaderPageResponse(v) => {
+                            let page = v.pages.iter().find_map(|(index, value)| {
+                                match value.page_id == rp.page_id {
+                                    true => Some(*index),
+                                    false => None,
+                                }
+                            });
+                            ui.painter().debug_rect(
+                                rect,
+                                Color32::RED,
+                                format!(
+                                    "{} {}/{}",
+                                    chapter,
+                                    page.unwrap_or_default(),
+                                    v.pages.len()
+                                ),
+                            );
+                        }
+                        _ => {}
+                    }
+
                     processed += height;
                     if processed >= end {
                         break;

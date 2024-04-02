@@ -1,6 +1,6 @@
 use crate::widgets::reader::load::load_image;
 use crate::widgets::reader::progress::Progress;
-use crate::widgets::reader::storage::ImageStorage;
+use crate::widgets::reader::storage::{ImageStorage, PageData};
 use api_structure::reader::{Action, MangaReaderResponse, ReaderPageResponse};
 use egui::Context;
 use std::sync::Arc;
@@ -17,6 +17,7 @@ pub fn multi(
     height: bool,
     imgs_: &mut ImageStorage,
     ctx: &Context,
+    page_data: &mut PageData,
 ) {
     let area = y * area;
     let mut processed = 0.;
@@ -26,11 +27,11 @@ pub fn multi(
             &v,
             hierachy,
             chapter,
-            progress,
             imgs_,
-            &reader_page,
-            count,
+            reader_page.clone(),
             ctx,
+            page_data,
+            progress.image as i32 + count,
         );
         match img {
             Action::Page(v) => {
