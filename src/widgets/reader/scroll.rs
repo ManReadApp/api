@@ -8,6 +8,10 @@ use std::sync::Arc;
 fn get_scroll_delta(ui: &mut Ui) -> Vec2 {
     ui.input(|i| i.smooth_scroll_delta)
 }
+
+pub fn report_progress(progress: f64) {
+    println!("{progress}")
+}
 pub fn set_progress(
     ui: &mut Ui,
     rm: &ReadingMode,
@@ -20,6 +24,10 @@ pub fn set_progress(
     match rm {
         ReadingMode::Strip => {
             let scroll_delta = get_scroll_delta(ui);
+            if scroll_delta == Vec2::ZERO {
+                return;
+            }
+
             let mut ch = get_page_resp(
                 mrr.clone(),
                 hierachy,
@@ -27,7 +35,7 @@ pub fn set_progress(
                 &progress.chapter,
                 ui.ctx(),
             );
-            if let State::ReaderPageResponse(v) = ch {
+            if let State::ReaderPageResponse(v) = &ch {
                 match v.get_page(progress.image as i32) {
                     Action::Page(page) => {
                         let max = page.height(area.x);
@@ -41,6 +49,13 @@ pub fn set_progress(
                                 }
                                 Action::Next => {
                                     if let Some(v) = mrr.get_next_chapter(&progress.chapter) {
+                                        ch = get_page_resp(
+                                            mrr.clone(),
+                                            hierachy,
+                                            page_data,
+                                            &v.chapter_id,
+                                            ui.ctx(),
+                                        );
                                         progress.image = 1;
                                         progress.pixels = processed - max;
                                         progress.chapter = v.chapter_id.clone();
@@ -51,13 +66,14 @@ pub fn set_progress(
                             match v.get_page(progress.image as i32 - 1) {
                                 Action::Prev => {
                                     if let Some(v) = mrr.get_prev_chapter(&progress.chapter) {
-                                        if let State::ReaderPageResponse(rpp) = get_page_resp(
+                                        ch = get_page_resp(
                                             mrr.clone(),
                                             hierachy,
                                             page_data,
                                             &v.chapter_id,
                                             ui.ctx(),
-                                        ) {
+                                        );
+                                        if let State::ReaderPageResponse(rpp) = &ch {
                                             let last_page =
                                                 rpp.pages.keys().max().copied().unwrap();
                                             progress.chapter = v.chapter_id.clone();
@@ -79,6 +95,13 @@ pub fn set_progress(
                     }
                     _ => unreachable!(),
                 }
+            }
+            if let State::ReaderPageResponse(v) = ch {
+                let page = v.pages.get(&progress.image).unwrap();
+                let start = page.progress.height_start;
+                let gap = page.progress.height_end - start;
+                let img_progress = progress.pixels as f64 / page.height(area.x) as f64;
+                report_progress(start + gap * img_progress);
             }
         }
         ReadingMode::Row(_) => {}
