@@ -54,6 +54,3 @@ cors-permissive = ["cors", "dep:actix-cors"]
 encryption = []
 content-type-from-filename = []
 dev = []
-
-[profile.test]
-opt-level = 3
